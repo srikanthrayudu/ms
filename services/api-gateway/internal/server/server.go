@@ -95,7 +95,7 @@ func (a *App) render(w http.ResponseWriter, page string, data PageData) {
 		data.DefaultLng = DefaultLng
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := tmpl.Execute(w, data); err != nil {
+	if err := tmpl.ExecuteTemplate(w, "layout", data); err != nil {
 		a.log.Error("render template", "page", page, "err", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}

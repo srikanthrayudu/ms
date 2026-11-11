@@ -139,3 +139,27 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .payment-table .money { font-weight: 600; color: var(--accent2); }
 .total-row { font-size: 15px; color: var(--muted); margin-bottom: 4px; }
 .total-row strong { color: var(--accent2); }
+
+/* ── Demo credentials ───────────────────────────────── */
+.demo-creds {
+  margin: 22px 0 10px;
+  padding: 16px;
+  background: rgba(108,140,255,.08);
+  border: 1px solid rgba(108,140,255,.2);
+  border-radius: 10px;
+}
+.demo-label { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--text); }
+.demo-grid { display: flex; gap: 10px; flex-wrap: wrap; }
+.demo-btn {
+  flex: 1; min-width: 160px; padding: 10px 14px; cursor: pointer; text-align: left;
+  background: var(--panel2); border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px; display: flex; flex-direction: column; gap: 3px;
+  transition: border-color .15s;
+}
+.demo-btn:hover { border-color: var(--accent); }
+.demo-role { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; border-radius: 4px; padding: 2px 6px; display: inline-block; }
+.passenger-badge { background: rgba(56,211,159,.2); color: var(--accent2); }
+.driver-badge    { background: rgba(108,140,255,.2); color: var(--accent); }
+.demo-email { font-size: 13px; color: var(--text); }
+.demo-pass  { font-size: 12px; color: var(--muted); font-family: monospace; }
+.demo-note  { margin: 10px 0 0; font-size: 12px; }
