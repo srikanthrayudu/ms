@@ -1,0 +1,16 @@
+{{define "content"}}
+<section class="card" data-signals="{email:'',password:''}">
+  <h2>Log in</h2>
+  <form data-on-submit="@post('/api/login')">
+    <label>Email
+      <input type="email" data-bind="email" required autocomplete="email">
+    </label>
+    <label>Password
+      <input type="password" data-bind="password" required autocomplete="current-password">
+    </label>
+    <button class="btn primary" type="submit">Log in</button>
+  </form>
+  <div id="form-error"></div>
+  <p class="muted">No account? <a href="/register">Register</a></p>
+</section>
+{{end}}

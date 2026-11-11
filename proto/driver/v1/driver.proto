@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package driver.v1;
+
+option go_package = "ms/proto/gen/driver/v1;driverv1";
+
+// DriverService manages driver onboarding, profiles and availability.
+service DriverService {
+  // OnboardDriver registers driver-specific details for an existing user.
+  rpc OnboardDriver(OnboardDriverRequest) returns (DriverProfile);
+  // GetDriver returns a driver's profile.
+  rpc GetDriver(GetDriverRequest) returns (DriverProfile);
+  // SetAvailability toggles whether a driver is accepting rides.
+  rpc SetAvailability(SetAvailabilityRequest) returns (AvailabilityStatus);
+  // GetAvailability returns a driver's current availability.
+  rpc GetAvailability(GetAvailabilityRequest) returns (AvailabilityStatus);
+}
+
+message OnboardDriverRequest {
+  string user_id = 1;
+  string license_number = 2;
+  string vehicle_plate = 3;
+  string vehicle_model = 4;
+}
+
+message DriverProfile {
+  string id = 1; // same as user_id
+  string license_number = 2;
+  string vehicle_plate = 3;
+  string vehicle_model = 4;
+  double rating = 5;
+  bool is_available = 6;
+  int64 onboarded_at = 7; // unix seconds
+}
+
+message GetDriverRequest {
+  string id = 1;
+}
+
+message SetAvailabilityRequest {
+  string id = 1;
+  bool is_available = 2;
+}
+
+message AvailabilityStatus {
+  string id = 1;
+  bool is_available = 2;
+}
+
+message GetAvailabilityRequest {
+  string id = 1;
+}

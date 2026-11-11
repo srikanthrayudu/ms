@@ -1,0 +1,9 @@
+{{define "content"}}
+<section class="card">
+  <h2>Payment history</h2>
+  <p class="muted">Your ride payments, newest first. Payments are created automatically when a trip completes.</p>
+  <div data-on-load="@get('/api/payments')">
+    <div id="payment-list" class="muted">Loading…</div>
+  </div>
+</section>
+{{end}}

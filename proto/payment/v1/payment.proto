@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package payment.v1;
+
+option go_package = "ms/proto/gen/payment/v1;paymentv1";
+
+// PaymentService records and queries fare payments for completed rides.
+// It is an event-driven service: payment records are created automatically
+// when a rides.<id>.completed NATS event is received. The gRPC interface
+// is used by the gateway for history queries and manual charge triggers.
+service PaymentService {
+  // ChargeRide creates (or idempotently returns) the payment for a ride.
+  // The ride-service and the NATS subscriber both call this; the second
+  // call is a no-op (returns the existing record).
+  rpc ChargeRide(ChargeRideRequest) returns (Payment);
+
+  // GetPayment returns the payment for a ride.
+  rpc GetPayment(GetPaymentRequest) returns (Payment);
+
+  // ListPayments returns all payments for a user (as passenger or driver).
+  rpc ListPayments(ListPaymentsRequest) returns (ListPaymentsResponse);
+}
+
+enum PaymentStatus {
+  PAYMENT_STATUS_UNSPECIFIED = 0;
+  PENDING    = 1;
+  COMPLETED  = 2;
+  FAILED     = 3;
+  REFUNDED   = 4;
+}
+
+message ChargeRideRequest {
+  string ride_id       = 1;
+  string passenger_id  = 2;
+  string driver_id     = 3;
+  double amount        = 4; // fare in USD cents-equivalent (e.g. 6.42)
+}
+
+message Payment {
+  string        id            = 1;
+  string        ride_id       = 2;
+  string        passenger_id  = 3;
+  string        driver_id     = 4;
+  double        amount        = 5;
+  PaymentStatus status        = 6;
+  int64         created_at    = 7; // unix seconds
+  int64         settled_at    = 8; // unix seconds (0 if not settled)
+  string        notes         = 9;
+}
+
+message GetPaymentRequest {
+  string ride_id = 1;
+}
+
+message ListPaymentsRequest {
+  string user_id = 1;
+  string role    = 2; // "passenger" | "driver"
+  int32  limit   = 3;
+}
+
+message ListPaymentsResponse {
+  repeated Payment payments = 1;
+  double           total    = 2; // sum of completed amounts
+}

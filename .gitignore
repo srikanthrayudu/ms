@@ -1,0 +1,19 @@
+# Build artifacts
+/bin/
+/data/
+*.db
+*.db-*
+*.db-shm
+*.db-wal
+
+# Go workspace
+go.work.sum
+
+# Logs
+/tmp/
+*.log
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

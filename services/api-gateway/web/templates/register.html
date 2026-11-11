@@ -1,0 +1,28 @@
+{{define "content"}}
+<section class="card" data-signals="{email:'',password:'',name:'',phone:'',role:'passenger'}">
+  <h2>Create an account</h2>
+  <form data-on-submit="@post('/api/register')">
+    <label>Name
+      <input data-bind="name" required autocomplete="name">
+    </label>
+    <label>Email
+      <input type="email" data-bind="email" required autocomplete="email">
+    </label>
+    <label>Password
+      <input type="password" data-bind="password" required autocomplete="new-password">
+    </label>
+    <label>Phone
+      <input data-bind="phone" autocomplete="tel">
+    </label>
+    <label>I want to be a
+      <select data-bind="role">
+        <option value="passenger">Passenger</option>
+        <option value="driver">Driver</option>
+      </select>
+    </label>
+    <button class="btn primary" type="submit">Register</button>
+  </form>
+  <div id="form-error"></div>
+  <p class="muted">Already have an account? <a href="/login">Log in</a></p>
+</section>
+{{end}}

@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package notification.v1;
+
+option go_package = "ms/proto/gen/notification/v1;notificationv1";
+
+// NotificationService fans out in-app notifications to connected users.
+// Internally it subscribes to NATS ride/payment events and stores recent
+// notifications per user. The gateway subscribes to this service to push
+// real-time notifications over SSE.
+service NotificationService {
+  // SendNotification creates and fans out a notification.
+  rpc SendNotification(SendNotificationRequest) returns (SendNotificationResponse);
+
+  // GetNotifications returns recent unread notifications for a user.
+  rpc GetNotifications(GetNotificationsRequest) returns (GetNotificationsResponse);
+
+  // MarkRead marks a list of notifications as read.
+  rpc MarkRead(MarkReadRequest) returns (MarkReadResponse);
+}
+
+enum NotificationType {
+  NOTIFICATION_TYPE_UNSPECIFIED = 0;
+  RIDE_MATCHED   = 1;
+  DRIVER_ARRIVED = 2;
+  RIDE_STARTED   = 3;
+  RIDE_COMPLETED = 4;
+  RIDE_CANCELLED = 5;
+  PAYMENT_CHARGED = 6;
+  SYSTEM_MESSAGE = 7;
+}
+
+message Notification {
+  string           id         = 1;
+  string           user_id    = 2;
+  NotificationType type       = 3;
+  string           title      = 4;
+  string           body       = 5;
+  string           ride_id    = 6; // optional context
+  bool             read       = 7;
+  int64            created_at = 8; // unix seconds
+}
+
+message SendNotificationRequest {
+  string           user_id = 1;
+  NotificationType type    = 2;
+  string           title   = 3;
+  string           body    = 4;
+  string           ride_id = 5;
+}
+
+message SendNotificationResponse {
+  string id = 1;
+}
+
+message GetNotificationsRequest {
+  string user_id     = 1;
+  bool   unread_only = 2;
+  int32  limit       = 3;
+}
+
+message GetNotificationsResponse {
+  repeated Notification notifications = 1;
+  int32                 unread_count  = 2;
+}
+
+message MarkReadRequest {
+  string          user_id          = 1;
+  repeated string notification_ids = 2; // empty = mark all
+}
+
+message MarkReadResponse {
+  int32 marked = 1;
+}

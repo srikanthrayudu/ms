@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package ride.v1;
+
+option go_package = "ms/proto/gen/ride/v1;ridev1";
+
+// RideService owns the ride lifecycle: request -> match -> on-the-way ->
+// ongoing -> completed. Matching delegates nearby-driver queries to the
+// LocationService and publishes lifecycle events on NATS.
+service RideService {
+  // RequestRide creates a ride, matches a nearby driver, and returns the ride.
+  rpc RequestRide(RequestRideRequest) returns (Ride);
+  // GetRide returns the current state of a ride.
+  rpc GetRide(GetRideRequest) returns (Ride);
+  // UpdateRideStatus advances a ride through its lifecycle.
+  rpc UpdateRideStatus(UpdateRideStatusRequest) returns (Ride);
+  // ListMyRides lists rides for a passenger or driver.
+  rpc ListMyRides(ListMyRidesRequest) returns (ListMyRidesResponse);
+}
+
+enum RideStatus {
+  RIDE_STATUS_UNSPECIFIED = 0;
+  REQUESTED = 1;
+  MATCHED = 2;
+  ON_THE_WAY = 3;
+  ONGOING = 4;
+  COMPLETED = 5;
+  CANCELLED = 6;
+}
+
+message GeoPoint {
+  double latitude = 1;
+  double longitude = 2;
+  string address = 3;
+}
+
+message RequestRideRequest {
+  string passenger_id = 1;
+  GeoPoint pickup = 2;
+  GeoPoint dropoff = 3;
+}
+
+message Ride {
+  string id = 1;
+  string passenger_id = 2;
+  string driver_id = 3;
+  GeoPoint pickup = 4;
+  GeoPoint dropoff = 5;
+  RideStatus status = 6;
+  double fare = 7;
+  double distance_meters = 8;
+  int64 requested_at = 9;  // unix seconds
+  int64 completed_at = 10; // unix seconds
+}
+
+message GetRideRequest {
+  string id = 1;
+}
+
+message UpdateRideStatusRequest {
+  string id = 1;
+  RideStatus status = 2;
+  string actor_id = 3; // user performing the update
+}
+
+message ListMyRidesRequest {
+  string user_id = 1;
+  string role = 2; // "passenger" or "driver"
+  int32 limit = 3;
+}
+
+message ListMyRidesResponse {
+  repeated Ride rides = 1;
+}

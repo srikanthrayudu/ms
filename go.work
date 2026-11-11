@@ -1,0 +1,13 @@
+go 1.26.0
+
+use (
+	./proto
+	./services/api-gateway
+	./services/driver-service
+	./services/location-service
+	./services/notification-service
+	./services/payment-service
+	./services/ride-service
+	./services/user-service
+	./shared
+)

@@ -1,0 +1,58 @@
+{{define "content"}}
+<section class="card">
+  <h2>Request a ride</h2>
+  <p class="muted">Hi{{if .UserName}}, {{.UserName}}{{end}}. Choose a pickup, then a dropoff on the map.</p>
+  <div class="place-btns">
+    <button class="btn sm" onclick="setPlace('pickup')" id="btn-pickup">📍 Set pickup</button>
+    <button class="btn sm" onclick="setPlace('dropoff')" id="btn-dropoff">🏁 Set dropoff</button>
+  </div>
+  <div id="map" class="map"></div>
+  <div data-signals="{pickupLat:0,pickupLng:0,dropoffLat:0,dropoffLng:0}">
+    <input type="hidden" data-bind="pickupLat">
+    <input type="hidden" data-bind="pickupLng">
+    <input type="hidden" data-bind="dropoffLat">
+    <input type="hidden" data-bind="dropoffLng">
+    <div class="coords">Pickup: <span data-text="pickupLat ? pickupLat.toFixed(5)+', '+pickupLng.toFixed(5) : '—'"></span></div>
+    <div class="coords">Dropoff: <span data-text="dropoffLat ? dropoffLat.toFixed(5)+', '+dropoffLng.toFixed(5) : '—'"></span></div>
+    <button class="btn primary" data-on-click="@post('/api/rides')">Request ride</button>
+    <div id="form-error"></div>
+  </div>
+</section>
+<script>
+(function () {
+  var DEF = [{{.DefaultLat}}, {{.DefaultLng}}];
+  var map = L.map('map').setView(DEF, 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  var place = 'pickup';
+  var mPick = null, mDrop = null;
+
+  window.setPlace = function (p) {
+    place = p;
+    document.getElementById('btn-pickup').className = 'btn sm' + (p === 'pickup' ? ' active' : '');
+    document.getElementById('btn-dropoff').className = 'btn sm' + (p === 'dropoff' ? ' active' : '');
+  };
+
+  function setSig(name, val) {
+    var el = document.querySelector('[data-bind="' + name + '"]');
+    if (!el) return;
+    el.value = val;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  map.on('click', function (e) {
+    var lat = e.latlng.lat, lng = e.latlng.lng;
+    if (place === 'pickup') {
+      if (mPick) mPick.setLatLng(e.latlng); else mPick = L.marker(e.latlng).addTo(map).bindPopup('Pickup').openPopup();
+      setSig('pickupLat', lat.toFixed(6));
+      setSig('pickupLng', lng.toFixed(6));
+    } else {
+      if (mDrop) mDrop.setLatLng(e.latlng); else mDrop = L.marker(e.latlng, { icon: L.divIcon({ html: '🏁', className: 'caricon', iconSize: [28, 28] }) }).addTo(map).bindPopup('Dropoff').openPopup();
+      setSig('dropoffLat', lat.toFixed(6));
+      setSig('dropoffLng', lng.toFixed(6));
+    }
+  });
+
+  setPlace('pickup');
+})();
+</script>
+{{end}}

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} · RideShare</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.5/bundles/datastar.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+</head>
+<body>
+  <nav class="topnav">
+    <a class="brand" href="/">🚗 RideShare</a>
+    <span class="spacer"></span>
+    {{if .User}}
+      <span class="navuser">{{roleLabel .User.Role}}{{if .UserName}} · {{.UserName}}{{end}}</span>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/payments">Payments</a>
+      <a href="/driver">Drive</a>
+      <span id="notif-badge" class="notif-badge hidden">0</span>
+      <button class="btn sm" data-on-click="@post('/api/notifications/read')">✓</button>
+      <button class="btn sm" data-on-click="@post('/api/logout')">Logout</button>
+      <div data-on-load="@get('/api/notifications/stream')"></div>
+    {{else}}
+      <a href="/login">Login</a>
+      <a href="/register">Register</a>
+    {{end}}
+  </nav>
+  <main>
+    {{template "content" .}}
+  </main>
+</body>
+</html>

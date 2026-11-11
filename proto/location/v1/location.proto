@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package location.v1;
+
+option go_package = "ms/proto/gen/location/v1;locationv1";
+
+// LocationService tracks driver positions in real time and answers
+// "nearby drivers" queries used by ride matching.
+service LocationService {
+  // UpdateLocation records a driver's latest position (also broadcast on NATS).
+  rpc UpdateLocation(UpdateLocationRequest) returns (UpdateLocationResponse);
+  // GetLocation returns a driver's latest known position.
+  rpc GetLocation(GetLocationRequest) returns (DriverLocation);
+  // GetNearbyDrivers returns drivers within radius_meters of a point.
+  rpc GetNearbyDrivers(GetNearbyDriversRequest) returns (GetNearbyDriversResponse);
+}
+
+message UpdateLocationRequest {
+  string driver_id = 1;
+  double latitude = 2;
+  double longitude = 3;
+  double heading = 4; // degrees, 0-360 (optional)
+  double speed = 5;   // meters/second (optional)
+}
+
+message UpdateLocationResponse {
+  bool acknowledged = 1;
+  int64 updated_at = 2; // unix seconds
+}
+
+message GetLocationRequest {
+  string driver_id = 1;
+}
+
+message DriverLocation {
+  string driver_id = 1;
+  double latitude = 2;
+  double longitude = 3;
+  double heading = 4;
+  double speed = 5;
+  int64 updated_at = 6; // unix seconds
+}
+
+message GetNearbyDriversRequest {
+  double latitude = 1;
+  double longitude = 2;
+  double radius_meters = 3;
+  int32 limit = 4;
+}
+
+message NearbyDriver {
+  string driver_id = 1;
+  double latitude = 2;
+  double longitude = 3;
+  double distance_meters = 4;
+  double heading = 5;
+  int64 updated_at = 6;
+}
+
+message GetNearbyDriversResponse {
+  repeated NearbyDriver drivers = 1;
+}

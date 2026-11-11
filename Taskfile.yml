@@ -1,0 +1,182 @@
+version: '3'
+
+vars:
+  GOPATH:
+    sh: go env GOPATH
+  BINDIR: "{{.ROOT_DIR}}/bin"
+  LOGDIR: /tmp/ms
+
+tasks:
+
+  # ─────────────────────────────────────────────
+  # Default
+  # ─────────────────────────────────────────────
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  # ─────────────────────────────────────────────
+  # Proto
+  # ─────────────────────────────────────────────
+  proto:generate:
+    desc: Regenerate Go gRPC code from protobuf definitions
+    dir: "{{.ROOT_DIR}}/proto"
+    cmds:
+      - "{{.GOPATH}}/bin/buf generate"
+
+  proto:lint:
+    desc: Lint protobuf definitions with buf
+    dir: "{{.ROOT_DIR}}/proto"
+    cmds:
+      - "{{.GOPATH}}/bin/buf lint"
+
+  # ─────────────────────────────────────────────
+  # Dependencies / Workspace
+  # ─────────────────────────────────────────────
+  tidy:
+    desc: go work sync + go mod tidy for every module
+    cmds:
+      - go work sync
+      - for:
+          - proto
+          - shared
+          - services/user-service
+          - services/driver-service
+          - services/location-service
+          - services/ride-service
+          - services/payment-service
+          - services/notification-service
+          - services/api-gateway
+        cmd: cd {{.ROOT_DIR}}/{{.ITEM}} && go mod tidy
+
+  # ─────────────────────────────────────────────
+  # Build
+  # ─────────────────────────────────────────────
+  build:
+    desc: Build all service binaries into ./bin
+    cmds:
+      - mkdir -p "{{.BINDIR}}"
+      - cd "{{.ROOT_DIR}}/services/user-service"         && go build -o "{{.BINDIR}}/user-service"         ./cmd/user-service
+      - cd "{{.ROOT_DIR}}/services/driver-service"       && go build -o "{{.BINDIR}}/driver-service"       ./cmd/driver-service
+      - cd "{{.ROOT_DIR}}/services/location-service"     && go build -o "{{.BINDIR}}/location-service"     ./cmd/location-service
+      - cd "{{.ROOT_DIR}}/services/ride-service"         && go build -o "{{.BINDIR}}/ride-service"         ./cmd/ride-service
+      - cd "{{.ROOT_DIR}}/services/payment-service"      && go build -o "{{.BINDIR}}/payment-service"      ./cmd/payment-service
+      - cd "{{.ROOT_DIR}}/services/notification-service" && go build -o "{{.BINDIR}}/notification-service" ./cmd/notification-service
+      - cd "{{.ROOT_DIR}}/services/api-gateway"          && go build -o "{{.BINDIR}}/api-gateway"          ./cmd/api-gateway
+
+  build:service:
+    desc: "Build a single service  (e.g. task build:service -- ride-service)"
+    cmds:
+      - cd "{{.ROOT_DIR}}/services/{{.CLI_ARGS}}" && go build -o "{{.BINDIR}}/{{.CLI_ARGS}}" ./cmd/{{.CLI_ARGS}}
+
+  # ─────────────────────────────────────────────/
+  # Run / Stop  (each service started via shell & so no background: property is needed)
+  # ─────────────────────────────────────────────
+  nats:
+    desc: Run NATS server in the foreground (useful standalone)
+    cmds:
+      - "{{.GOPATH}}/bin/nats-server -p 4222 -m 8222"
+
+  up:
+    desc: Build everything then start NATS + all services in the background
+    deps: [build]
+    cmds:
+      - mkdir -p "{{.ROOT_DIR}}/data" "{{.LOGDIR}}"
+      - |
+        # Kill any stale instances first (ignore errors)
+        pkill -f "{{.BINDIR}}/" 2>/dev/null || true
+        pkill -f "nats-server -p 4222" 2>/dev/null || true
+        sleep 0.5
+
+        # Start NATS
+        {{.GOPATH}}/bin/nats-server -p 4222 -m 8222 >"{{.LOGDIR}}/nats.log" 2>&1 &
+        sleep 1
+
+        # Start backend services
+        cd "{{.ROOT_DIR}}" && ./bin/user-service         >"{{.LOGDIR}}/user.log"         2>&1 &
+        cd "{{.ROOT_DIR}}" && ./bin/driver-service       >"{{.LOGDIR}}/driver.log"       2>&1 &
+        cd "{{.ROOT_DIR}}" && ./bin/location-service     >"{{.LOGDIR}}/location.log"     2>&1 &
+        cd "{{.ROOT_DIR}}" && ./bin/ride-service         >"{{.LOGDIR}}/ride.log"         2>&1 &
+        cd "{{.ROOT_DIR}}" && ./bin/payment-service      >"{{.LOGDIR}}/payment.log"      2>&1 &
+        cd "{{.ROOT_DIR}}" && ./bin/notification-service >"{{.LOGDIR}}/notification.log" 2>&1 &
+        sleep 1
+
+        # Start gateway last (depends on all others)
+        cd "{{.ROOT_DIR}}" && ./bin/api-gateway >"{{.LOGDIR}}/gateway.log" 2>&1 &
+        sleep 1
+
+        echo ""
+        echo "  ✅  All services started"
+        echo "  🌐  Gateway  → http://localhost:8080"
+        echo "  📊  NATS mon → http://localhost:8222"
+        echo "  📄  Logs     → {{.LOGDIR}}/*.log"
+        echo ""
+
+  down:
+    desc: Stop all services and NATS
+    cmds:
+      - |
+        for svc in api-gateway notification-service payment-service ride-service location-service driver-service user-service; do
+          pkill -f "bin/$svc" 2>/dev/null && echo "  stopped $svc" || true
+        done
+        pkill -f "nats-server -p 4222" 2>/dev/null && echo "  stopped nats-server" || true
+        echo "  ✅  All services stopped"
+
+  restart:
+    desc: "Restart a single service (e.g. task restart -- ride-service)"
+    cmds:
+      - pkill -f "bin/{{.CLI_ARGS}}" 2>/dev/null || true
+      - sleep 0.3
+      - cd "{{.ROOT_DIR}}" && ./bin/{{.CLI_ARGS}} >"{{.LOGDIR}}/{{.CLI_ARGS}}.log" 2>&1 &
+      - echo "  ♻️  Restarted {{.CLI_ARGS}}"
+
+  # ─────────────────────────────────────────────
+  # Logs
+  # ─────────────────────────────────────────────
+  logs:
+    desc: Tail all service logs
+    cmds:
+      - tail -f "{{.LOGDIR}}/nats.log" "{{.LOGDIR}}/user.log" "{{.LOGDIR}}/driver.log" "{{.LOGDIR}}/location.log" "{{.LOGDIR}}/ride.log" "{{.LOGDIR}}/payment.log" "{{.LOGDIR}}/notification.log" "{{.LOGDIR}}/gateway.log"
+
+  logs:service:
+    desc: "Tail a single service log (e.g. task logs:service -- ride)"
+    cmds:
+      - tail -f "{{.LOGDIR}}/{{.CLI_ARGS}}.log"
+
+  # ─────────────────────────────────────────────
+  # Test & Quality
+  # ─────────────────────────────────────────────
+  test:
+    desc: Run all tests across the entire workspace
+    cmds:
+      - go test ./...
+
+  vet:
+    desc: Run go vet across all modules
+    cmds:
+      - for:
+          - shared
+          - services/user-service
+          - services/driver-service
+          - services/location-service
+          - services/ride-service
+          - services/payment-service
+          - services/notification-service
+          - services/api-gateway
+        cmd: cd {{.ROOT_DIR}}/{{.ITEM}} && go vet ./... && echo "  ✅  {{.ITEM}}"
+
+  # ─────────────────────────────────────────────
+  # Clean
+  # ─────────────────────────────────────────────
+  clean:
+    desc: Remove build artefacts and local databases
+    cmds:
+      - rm -rf "{{.BINDIR}}" "{{.ROOT_DIR}}/data"
+      - echo "  🗑️   Cleaned bin/ and data/"
+
+  clean:logs:
+    desc: Remove all log files from /tmp/ms/
+    cmds:
+      - rm -f "{{.LOGDIR}}"/*.log
+      - echo "  🗑️   Cleaned {{.LOGDIR}}/*.log"

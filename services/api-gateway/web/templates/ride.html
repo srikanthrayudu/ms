@@ -1,0 +1,33 @@
+{{define "content"}}
+<section class="card">
+  <h2>Ride <code>{{.RideID}}</code></h2>
+  <div id="ride-status" class="status">Loading…</div>
+  <div id="map" class="map"></div>
+  <div data-on-load="@get('/api/rides/{{.RideID}}/stream')"></div>
+</section>
+<script>
+(function () {
+  var DEF = [{{.DefaultLat}}, {{.DefaultLng}}];
+  var map = L.map('map').setView(DEF, 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  var mPick = null, mDrop = null, mDriver = null;
+
+  function carIcon() { return L.divIcon({ html: '🚗', className: 'caricon', iconSize: [30, 30] }); }
+
+  window.placePickup = function (lat, lng) {
+    var ll = [lat, lng];
+    if (mPick) mPick.setLatLng(ll); else mPick = L.marker(ll).addTo(map).bindPopup('Pickup');
+    map.fitBounds([ll, mDrop ? mDrop.getLatLng() : ll].length === 2 && mDrop ? [ll, mDrop.getLatLng()] : [ll, ll], { padding: [40, 40] });
+  };
+  window.placeDropoff = function (lat, lng) {
+    var ll = [lat, lng];
+    if (mDrop) mDrop.setLatLng(ll); else mDrop = L.marker(ll, { icon: L.divIcon({ html: '🏁', className: 'caricon', iconSize: [28, 28] }) }).addTo(map).bindPopup('Dropoff');
+  };
+  window.moveDriverMarker = function (lat, lng) {
+    var ll = [lat, lng];
+    if (mDriver) { mDriver.setLatLng(ll); } else { mDriver = L.marker(ll, { icon: carIcon() }).addTo(map).bindPopup('Your driver'); }
+    map.panTo(ll, { animate: true });
+  };
+})();
+</script>
+{{end}}
