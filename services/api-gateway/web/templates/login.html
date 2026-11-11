@@ -1,46 +1,53 @@
 {{define "content"}}
-<section class="card" data-signals="{email:'',password:''}">
-  <h2>Log in</h2>
-  <form data-on-submit="@post('/api/login')">
-    <label>Email
-      <input type="email" data-bind="email" required autocomplete="email">
-    </label>
-    <label>Password
-      <input type="password" data-bind="password" required autocomplete="current-password">
-    </label>
-    <button class="btn primary" type="submit">Log in</button>
-  </form>
-  <div id="form-error"></div>
+<div class="auth-wrap">
+  <h2>Welcome back</h2>
+  <p class="sub">Sign in to your Swiftride account.</p>
 
-  <div class="demo-creds">
-    <p class="demo-label">🚀 Demo accounts — click to fill:</p>
+  <div class="demo-panel">
+    <p class="demo-panel-label">Try a demo account</p>
     <div class="demo-grid">
       <button class="demo-btn" onclick="fillDemo('passenger@demo.com','demo1234')">
-        <span class="demo-role passenger-badge">Passenger</span>
+        <span class="demo-role-pill pill-passenger">Passenger</span>
         <span class="demo-email">passenger@demo.com</span>
-        <span class="demo-pass">demo1234</span>
+        <span class="demo-pwd">demo1234</span>
       </button>
       <button class="demo-btn" onclick="fillDemo('driver@demo.com','demo1234')">
-        <span class="demo-role driver-badge">Driver</span>
+        <span class="demo-role-pill pill-driver">Driver</span>
         <span class="demo-email">driver@demo.com</span>
-        <span class="demo-pass">demo1234</span>
+        <span class="demo-pwd">demo1234</span>
       </button>
     </div>
-    <p class="demo-note muted">These accounts are created automatically on first use.</p>
   </div>
 
-  <p class="muted">No account? <a href="/register">Register</a></p>
-</section>
+  <div class="auth-divider">or sign in with email</div>
+
+  <div class="card" data-signals="{email:'',password:''}">
+    <form data-on-submit="@post('/api/login')">
+      <label>
+        <span>Email address</span>
+        <input type="email" data-bind="email" placeholder="you@example.com" required autocomplete="email">
+      </label>
+      <label>
+        <span>Password</span>
+        <input type="password" data-bind="password" placeholder="••••••••" required autocomplete="current-password">
+      </label>
+      <div class="form-actions">
+        <button class="btn primary w-full" type="submit">Sign in</button>
+      </div>
+    </form>
+    <div id="form-error"></div>
+  </div>
+
+  <p class="auth-footer">Don't have an account? <a href="/register">Create one</a></p>
+</div>
 
 <script>
 function fillDemo(email, pw) {
-  // Update the Datastar signals by dispatching input events on the bound fields.
-  function setSig(selector, val) {
-    var el = document.querySelector('[data-bind="' + selector + '"]');
+  function setSig(name, val) {
+    var el = document.querySelector('[data-bind="' + name + '"]');
     if (!el) return;
-    // Set the native value and fire both input and change so Datastar picks it up.
-    var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    nativeInputValueSetter.call(el, val);
+    var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    setter.call(el, val);
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
@@ -48,21 +55,16 @@ function fillDemo(email, pw) {
   setSig('password', pw);
 }
 
-// Auto-create the demo accounts on page load (idempotent — server ignores duplicates).
 (function ensureDemoAccounts() {
-  var accounts = [
+  [
     { email: 'passenger@demo.com', password: 'demo1234', name: 'Demo Passenger', phone: '555-0001', role: 'passenger' },
     { email: 'driver@demo.com',    password: 'demo1234', name: 'Demo Driver',    phone: '555-0002', role: 'driver'    }
-  ];
-  accounts.forEach(function(a) {
+  ].forEach(function(a) {
     fetch('/api/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      // ReadSignals expects the Datastar signals envelope
       body: JSON.stringify(a)
     }).catch(function() {});
-    // We intentionally ignore the response — if the account exists the server
-    // returns AlreadyExists and nothing breaks.
   });
 })();
 </script>

@@ -55,14 +55,12 @@ func (a *App) apiDriverAvailability(w http.ResponseWriter, r *http.Request) {
 	})
 	sse := datastar.NewSSE(w, r)
 	if err != nil {
-		_ = sse.PatchElements(fmt.Sprintf(`<div id="driver-status" class="status error">%s</div>`, escapeHTML(err.Error())))
+		_ = sse.PatchElements(fmt.Sprintf(`<div id="form-error" class="error-msg">Something went wrong. Please try again.</div>`))
 		return
 	}
 	if s.Online {
-		_ = sse.PatchElements(`<div id="driver-status" class="status online">Online — waiting for ride requests…</div>`)
 		_ = sse.ExecuteScript("window.startDrivingLoop()")
 	} else {
-		_ = sse.PatchElements(`<div id="driver-status" class="status offline">Offline</div>`)
 		_ = sse.ExecuteScript("window.stopDrivingLoop()")
 	}
 }
@@ -147,30 +145,47 @@ func sendDriverRide(sse *datastar.ServerSentEventGenerator, ride *ridev1.Ride) {
 	_ = sse.ExecuteScript(fmt.Sprintf("window.onRideStatus(%q)", ride.GetStatus().String()))
 }
 
-// renderDriverRidePanel returns the #current-ride element with status-appropriate controls.
+// renderDriverRidePanel returns the #current-ride element with clean copy and controls.
 func renderDriverRidePanel(ride *ridev1.Ride) string {
 	id := ride.GetId()
-	status := ride.GetStatus().String()
-	var controls string
-	switch ride.GetStatus() {
-	case ridev1.RideStatus_MATCHED:
-		controls = fmt.Sprintf(`<button class="btn" data-on-click="@post('/api/rides/%s/start')">Start trip (on the way)</button>`, id)
-	case ridev1.RideStatus_ON_THE_WAY:
-		controls = fmt.Sprintf(`<button class="btn" data-on-click="@post('/api/rides/%s/pickup')">Pick up passenger</button>`, id)
-	case ridev1.RideStatus_ONGOING:
-		controls = fmt.Sprintf(`<button class="btn" data-on-click="@post('/api/rides/%s/complete')">Complete trip</button>`, id)
-	case ridev1.RideStatus_COMPLETED:
-		controls = fmt.Sprintf(`<div class="fare">Trip completed — fare $%.2f</div>`, ride.GetFare())
-	case ridev1.RideStatus_CANCELLED:
-		controls = `<div class="cancelled">Trip cancelled</div>`
+	st := ride.GetStatus()
+	cls := statusClass(st.String())
+
+	labelMap := map[ridev1.RideStatus]string{
+		ridev1.RideStatus_MATCHED:    "Head to pickup",
+		ridev1.RideStatus_ON_THE_WAY: "Approaching passenger",
+		ridev1.RideStatus_ONGOING:    "Trip in progress",
+		ridev1.RideStatus_COMPLETED:  "Trip complete",
+		ridev1.RideStatus_CANCELLED:  "Cancelled",
 	}
+	label := labelMap[st]
+	if label == "" {
+		label = st.String()
+	}
+
+	var controls string
+	switch st {
+	case ridev1.RideStatus_MATCHED:
+		controls = fmt.Sprintf(`<button class="btn success sm" data-on-click="@post('/api/rides/%s/start')">I'm on the way →</button>`, id)
+	case ridev1.RideStatus_ON_THE_WAY:
+		controls = fmt.Sprintf(`<button class="btn success sm" data-on-click="@post('/api/rides/%s/pickup')">Passenger picked up →</button>`, id)
+	case ridev1.RideStatus_ONGOING:
+		controls = fmt.Sprintf(`<button class="btn success sm" data-on-click="@post('/api/rides/%s/complete')">Complete trip →</button>`, id)
+	case ridev1.RideStatus_COMPLETED:
+		controls = fmt.Sprintf(`<div class="fare">$%.2f earned</div>`, ride.GetFare())
+	case ridev1.RideStatus_CANCELLED:
+		controls = `<span class="muted">Trip was cancelled.</span>`
+	}
+
 	return fmt.Sprintf(`<div id="current-ride" class="ride-card">
-		<h3>Active ride <code>%s</code></h3>
-		<div class="row"><span class="badge %s">%s</span></div>
-		<div class="coords">Pickup: %.5f, %.5f</div>
-		<div class="coords">Dropoff: %.5f, %.5f</div>
+		<div class="ride-card-header">
+			<h3>Active trip</h3>
+			<span class="badge %s">%s</span>
+		</div>
+		<div class="coords"><span class="dot dot-green"></span> %.5f, %.5f</div>
+		<div class="coords"><span class="dot dot-indigo"></span> %.5f, %.5f</div>
 		<div class="controls">%s</div>
-	</div>`, id, statusClass(status), status,
+	</div>`, cls, label,
 		ride.GetPickup().GetLatitude(), ride.GetPickup().GetLongitude(),
 		ride.GetDropoff().GetLatitude(), ride.GetDropoff().GetLongitude(),
 		controls)

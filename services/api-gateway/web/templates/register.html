@@ -1,28 +1,40 @@
 {{define "content"}}
-<section class="card" data-signals="{email:'',password:'',name:'',phone:'',role:'passenger'}">
-  <h2>Create an account</h2>
-  <form data-on-submit="@post('/api/register')">
-    <label>Name
-      <input data-bind="name" required autocomplete="name">
-    </label>
-    <label>Email
-      <input type="email" data-bind="email" required autocomplete="email">
-    </label>
-    <label>Password
-      <input type="password" data-bind="password" required autocomplete="new-password">
-    </label>
-    <label>Phone
-      <input data-bind="phone" autocomplete="tel">
-    </label>
-    <label>I want to be a
-      <select data-bind="role">
-        <option value="passenger">Passenger</option>
-        <option value="driver">Driver</option>
-      </select>
-    </label>
-    <button class="btn primary" type="submit">Register</button>
-  </form>
-  <div id="form-error"></div>
-  <p class="muted">Already have an account? <a href="/login">Log in</a></p>
-</section>
+<div class="auth-wrap">
+  <h2>Create your account</h2>
+  <p class="sub">Join Swiftride in under a minute.</p>
+
+  <div class="card" data-signals="{email:'',password:'',name:'',phone:'',role:'passenger'}">
+    <form data-on-submit="@post('/api/register')">
+      <label>
+        <span>Full name</span>
+        <input data-bind="name" placeholder="Jane Smith" required autocomplete="name">
+      </label>
+      <label>
+        <span>Email address</span>
+        <input type="email" data-bind="email" placeholder="you@example.com" required autocomplete="email">
+      </label>
+      <label>
+        <span>Password</span>
+        <input type="password" data-bind="password" placeholder="••••••••" required autocomplete="new-password" minlength="6">
+      </label>
+      <label>
+        <span>Phone number <span class="text-xs" style="color:var(--muted)">(optional)</span></span>
+        <input type="tel" data-bind="phone" placeholder="+1 555 000 0000" autocomplete="tel">
+      </label>
+      <label>
+        <span>I want to</span>
+        <select data-bind="role">
+          <option value="passenger">Book rides as a Passenger</option>
+          <option value="driver">Earn money as a Driver</option>
+        </select>
+      </label>
+      <div class="form-actions">
+        <button class="btn primary w-full" type="submit">Create account</button>
+      </div>
+    </form>
+    <div id="form-error"></div>
+  </div>
+
+  <p class="auth-footer">Already have an account? <a href="/login">Sign in</a></p>
+</div>
 {{end}}

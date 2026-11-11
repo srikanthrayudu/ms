@@ -1,16 +1,34 @@
 {{define "content"}}
 <section class="hero">
-  <h1>Smart Ride-Sharing</h1>
-  <p class="lede">A microservices demo built with Go, gRPC, NATS, libSQL and a Datastar frontend.</p>
+  <span class="hero-eyebrow">Now in beta</span>
+  <h1>Rides, delivered instantly.</h1>
+  <p class="subtitle">Request a ride in seconds. Real-time tracking, transparent pricing, and reliable drivers — all in one place.</p>
   <div class="cta">
-    <a class="btn primary" href="/register">Get started</a>
-    <a class="btn ghost" href="/login">Log in</a>
+    <a class="btn primary lg" href="/register">Create account</a>
+    <a class="btn ghost lg" href="/login">Sign in</a>
   </div>
-  <ul class="features">
-    <li>Passenger requests a ride from a live map</li>
-    <li>Driver goes online and gets matched automatically</li>
-    <li>Real-time driver tracking over Server-Sent Events</li>
-    <li>Ride lifecycle: requested → matched → on-the-way → ongoing → completed</li>
-  </ul>
+
+  <div class="feature-grid">
+    <div class="feature-item">
+      <span class="fi-icon">📍</span>
+      <h3>Instant matching</h3>
+      <p>Get matched with the nearest available driver in real time.</p>
+    </div>
+    <div class="feature-item">
+      <span class="fi-icon">🗺️</span>
+      <h3>Live tracking</h3>
+      <p>Watch your driver's location update live on the map.</p>
+    </div>
+    <div class="feature-item">
+      <span class="fi-icon">💳</span>
+      <h3>Auto payment</h3>
+      <p>Fare is calculated and charged automatically at trip end.</p>
+    </div>
+    <div class="feature-item">
+      <span class="fi-icon">🔔</span>
+      <h3>Smart alerts</h3>
+      <p>Get notified at every step — match, pickup, and arrival.</p>
+    </div>
+  </div>
 </section>
 {{end}}

@@ -40,15 +40,16 @@ func DriverLocationSubject(driverID string) string {
 
 // RideEvent is published on every ride lifecycle transition.
 type RideEvent struct {
-	RideID    string  `json:"ride_id"`
-	Type      string  `json:"type"`
-	Status    string  `json:"status"`
-	DriverID  string  `json:"driver_id,omitempty"`
-	Latitude  float64 `json:"latitude,omitempty"`
-	Longitude float64 `json:"longitude,omitempty"`
-	Heading   float64 `json:"heading,omitempty"`
-	Fare      float64 `json:"fare,omitempty"`
-	Timestamp int64   `json:"timestamp"`
+	RideID      string  `json:"ride_id"`
+	Type        string  `json:"type"`
+	Status      string  `json:"status"`
+	DriverID    string  `json:"driver_id,omitempty"`
+	PassengerID string  `json:"passenger_id,omitempty"`
+	Latitude    float64 `json:"latitude,omitempty"`
+	Longitude   float64 `json:"longitude,omitempty"`
+	Heading     float64 `json:"heading,omitempty"`
+	Fare        float64 `json:"fare,omitempty"`
+	Timestamp   int64   `json:"timestamp"`
 }
 
 // DriverLocationEvent is published whenever a driver reports a new fix.

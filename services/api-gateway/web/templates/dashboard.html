@@ -1,35 +1,70 @@
 {{define "content"}}
-<section class="card">
-  <h2>Request a ride</h2>
-  <p class="muted">Hi{{if .UserName}}, {{.UserName}}{{end}}. Choose a pickup, then a dropoff on the map.</p>
-  <div class="place-btns">
-    <button class="btn sm" onclick="setPlace('pickup')" id="btn-pickup">📍 Set pickup</button>
-    <button class="btn sm" onclick="setPlace('dropoff')" id="btn-dropoff">🏁 Set dropoff</button>
+<div data-signals="{pickupLat:0,pickupLng:0,dropoffLat:0,dropoffLng:0}">
+  <input type="hidden" data-bind="pickupLat">
+  <input type="hidden" data-bind="pickupLng">
+  <input type="hidden" data-bind="dropoffLat">
+  <input type="hidden" data-bind="dropoffLng">
+
+  <div style="margin-bottom:24px">
+    <h2>Where to{{if .UserName}}, {{.UserName}}{{end}}?</h2>
+    <p class="muted mt-4">Tap a point on the map to set your pickup, then tap again for your destination.</p>
   </div>
-  <div id="map" class="map"></div>
-  <div data-signals="{pickupLat:0,pickupLng:0,dropoffLat:0,dropoffLng:0}">
-    <input type="hidden" data-bind="pickupLat">
-    <input type="hidden" data-bind="pickupLng">
-    <input type="hidden" data-bind="dropoffLat">
-    <input type="hidden" data-bind="dropoffLng">
-    <div class="coords">Pickup: <span data-text="pickupLat ? pickupLat.toFixed(5)+', '+pickupLng.toFixed(5) : '—'"></span></div>
-    <div class="coords">Dropoff: <span data-text="dropoffLat ? dropoffLat.toFixed(5)+', '+dropoffLng.toFixed(5) : '—'"></span></div>
-    <button class="btn primary" data-on-click="@post('/api/rides')">Request ride</button>
-    <div id="form-error"></div>
+
+  <div class="map-toggle">
+    <button class="toggle-btn active-pickup" onclick="setPlace('pickup')" id="btn-pickup">
+      <span>🟢</span> Set pickup
+    </button>
+    <button class="toggle-btn" onclick="setPlace('dropoff')" id="btn-dropoff">
+      <span>🔵</span> Set destination
+    </button>
   </div>
-</section>
+
+  <div class="map-wrap">
+    <div class="map-instructions" id="map-hint">Tap to place your pickup point</div>
+    <div id="map" class="map"></div>
+  </div>
+
+  <div class="location-row">
+    <div class="location-pill">
+      <span class="loc-icon">🟢</span>
+      <div>
+        <span class="loc-label">Pickup</span>
+        <span class="loc-value" data-text="pickupLat ? pickupLat.toFixed(4)+', '+pickupLng.toFixed(4) : 'Not set'"></span>
+      </div>
+    </div>
+    <div class="location-pill">
+      <span class="loc-icon">🔵</span>
+      <div>
+        <span class="loc-label">Destination</span>
+        <span class="loc-value" data-text="dropoffLat ? dropoffLat.toFixed(4)+', '+dropoffLng.toFixed(4) : 'Not set'"></span>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn primary lg w-full" data-on-click="@post('/api/rides')">Request ride →</button>
+  <div id="form-error"></div>
+</div>
+
 <script>
 (function () {
   var DEF = [{{.DefaultLat}}, {{.DefaultLng}}];
-  var map = L.map('map').setView(DEF, 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  var map = L.map('map').setView(DEF, 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>'
+  }).addTo(map);
+
   var place = 'pickup';
   var mPick = null, mDrop = null;
 
+  var pickupIcon = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#2ecc8c;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+  var dropIcon  = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#6c8cff;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+
   window.setPlace = function (p) {
     place = p;
-    document.getElementById('btn-pickup').className = 'btn sm' + (p === 'pickup' ? ' active' : '');
-    document.getElementById('btn-dropoff').className = 'btn sm' + (p === 'dropoff' ? ' active' : '');
+    var hints = { pickup: 'Tap to place your pickup point', dropoff: 'Tap to place your destination' };
+    document.getElementById('map-hint').textContent = hints[p] || '';
+    document.getElementById('btn-pickup').className  = 'toggle-btn' + (p === 'pickup'  ? ' active-pickup'  : '');
+    document.getElementById('btn-dropoff').className = 'toggle-btn' + (p === 'dropoff' ? ' active-dropoff' : '');
   };
 
   function setSig(name, val) {
@@ -42,17 +77,18 @@
   map.on('click', function (e) {
     var lat = e.latlng.lat, lng = e.latlng.lng;
     if (place === 'pickup') {
-      if (mPick) mPick.setLatLng(e.latlng); else mPick = L.marker(e.latlng).addTo(map).bindPopup('Pickup').openPopup();
+      if (mPick) mPick.setLatLng(e.latlng); else mPick = L.marker(e.latlng, { icon: pickupIcon }).addTo(map);
       setSig('pickupLat', lat.toFixed(6));
       setSig('pickupLng', lng.toFixed(6));
+      setPlace('dropoff');
     } else {
-      if (mDrop) mDrop.setLatLng(e.latlng); else mDrop = L.marker(e.latlng, { icon: L.divIcon({ html: '🏁', className: 'caricon', iconSize: [28, 28] }) }).addTo(map).bindPopup('Dropoff').openPopup();
+      if (mDrop) mDrop.setLatLng(e.latlng); else mDrop = L.marker(e.latlng, { icon: dropIcon }).addTo(map);
       setSig('dropoffLat', lat.toFixed(6));
       setSig('dropoffLng', lng.toFixed(6));
+      document.getElementById('map-hint').textContent = 'Tap "Request ride" when ready';
+      if (mPick && mDrop) map.fitBounds([mPick.getLatLng(), mDrop.getLatLng()], { padding: [48, 48] });
     }
   });
-
-  setPlace('pickup');
 })();
 </script>
 {{end}}

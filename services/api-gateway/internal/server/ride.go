@@ -139,20 +139,50 @@ func (a *App) patchRideUI(sse *datastar.ServerSentEventGenerator, ride *ridev1.R
 
 // renderRideStatusPanel returns the HTML for the #ride-status element.
 func renderRideStatusPanel(ride *ridev1.Ride) string {
-	status := ride.GetStatus().String()
-	driver := "Searching for a nearby driver…"
-	if ride.GetDriverId() != "" {
-		driver = "Driver assigned: " + ride.GetDriverId()
+	st := ride.GetStatus()
+	cls := statusClass(st.String())
+
+	iconMap := map[string]string{
+		"pending": "🔍", "matched": "🚗", "coming": "🛣️", "active": "🛤️", "done": "✅", "cancelled": "❌",
 	}
+	icon := iconMap[cls]
+	if icon == "" {
+		icon = "⏳"
+	}
+
+	titleMap := map[ridev1.RideStatus]string{
+		ridev1.RideStatus_REQUESTED:  "Finding your driver…",
+		ridev1.RideStatus_MATCHED:    "Driver matched",
+		ridev1.RideStatus_ON_THE_WAY: "Driver is on the way",
+		ridev1.RideStatus_ONGOING:    "Trip in progress",
+		ridev1.RideStatus_COMPLETED:  "Trip complete",
+		ridev1.RideStatus_CANCELLED:  "Trip cancelled",
+	}
+	title := titleMap[st]
+	if title == "" {
+		title = st.String()
+	}
+
+	subMap := map[ridev1.RideStatus]string{
+		ridev1.RideStatus_REQUESTED:  "Searching for a nearby driver",
+		ridev1.RideStatus_MATCHED:    "Your driver is heading to your pickup",
+		ridev1.RideStatus_ON_THE_WAY: "Your driver is approaching",
+		ridev1.RideStatus_ONGOING:    "Sit back — you're on your way",
+		ridev1.RideStatus_COMPLETED:  "Thanks for riding with Swiftride",
+		ridev1.RideStatus_CANCELLED:  "This trip was cancelled",
+	}
+	sub := subMap[st]
+
 	fare := ""
-	if ride.GetStatus() == ridev1.RideStatus_COMPLETED {
-		fare = fmt.Sprintf(`<div class="fare">Fare: $%.2f</div>`, ride.GetFare())
+	if st == ridev1.RideStatus_COMPLETED {
+		fare = fmt.Sprintf(`<div class="fare">$%.2f</div>`, ride.GetFare())
 	}
+
 	return fmt.Sprintf(`<div id="ride-status" class="status %s">
 		<span class="badge %s">%s</span>
-		<div class="driver">%s</div>
+		<div class="driver">%s %s</div>
 		%s
-	</div>`, statusClass(status), statusClass(status), status, driver, fare)
+	</div>`, cls, cls, title, icon, sub, fare)
 }
 
 func statusClass(status string) string {

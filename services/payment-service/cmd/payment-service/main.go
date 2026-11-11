@@ -67,10 +67,11 @@ func main() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if _, err := repo.Create(ctx, &store.Payment{
-				ID:        "pay_nats_" + ev.RideID[:8],
-				RideID:    ev.RideID,
-				DriverID:  ev.DriverID,
-				Amount:    ev.Fare,
+				ID:          "pay_nats_" + ev.RideID[:8],
+				RideID:      ev.RideID,
+				PassengerID: ev.PassengerID,
+				DriverID:    ev.DriverID,
+				Amount:      ev.Fare,
 				Status:    int(paymentv1.PaymentStatus_COMPLETED),
 				CreatedAt: time.Now().Unix(),
 				SettledAt: time.Now().Unix(),

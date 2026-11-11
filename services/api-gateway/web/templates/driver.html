@@ -1,90 +1,145 @@
 {{define "content"}}
-<section class="card">
-  <h2>Driver dashboard</h2>
-  {{if not .Onboarded}}
-  <div data-signals="{license:'',plate:'',model:''}">
-    <p class="muted">Onboard your vehicle to start receiving ride requests.</p>
+{{if not .Onboarded}}
+
+<div class="onboard-wrap">
+  <div style="margin-bottom:28px">
+    <h2>Set up your driver profile</h2>
+    <p class="muted mt-4">Add your vehicle details to start accepting rides.</p>
+    <div class="onboard-steps mt-16">
+      <div class="step-dot active"></div>
+      <div class="step-dot"></div>
+      <div class="step-dot"></div>
+    </div>
+  </div>
+
+  <div class="card" data-signals="{license:'',plate:'',model:''}">
     <form data-on-submit="@post('/api/driver/onboard')">
-      <label>License number<input data-bind="license" required></label>
-      <label>Vehicle plate<input data-bind="plate" required></label>
-      <label>Vehicle model<input data-bind="model" required></label>
-      <button class="btn primary" type="submit">Onboard</button>
+      <label>
+        <span>Driver's license number</span>
+        <input data-bind="license" placeholder="e.g. DL-123456" required>
+      </label>
+      <label>
+        <span>Vehicle plate</span>
+        <input data-bind="plate" placeholder="e.g. NY-1234" required>
+      </label>
+      <label>
+        <span>Vehicle model</span>
+        <input data-bind="model" placeholder="e.g. Toyota Camry 2022" required>
+      </label>
+      <div class="form-actions">
+        <button class="btn primary w-full" type="submit">Complete setup</button>
+      </div>
     </form>
     <div id="form-error"></div>
   </div>
-  {{else}}
-  <div data-signals="{online:false}">
-    <div id="driver-status" class="status offline">Offline</div>
-    <label class="switch">
-      <input type="checkbox" data-bind="online" data-on-change="@post('/api/driver/availability')">
-      <span>Go online</span>
-    </label>
-    <div id="current-ride"></div>
-    <div id="map" class="map"></div>
-    <p class="muted">Going online simulates your location near the city centre so you can be matched. The marker drives itself toward the pickup, then the dropoff.</p>
-    <div data-on-load="@get('/api/driver/stream')"></div>
+</div>
+
+{{else}}
+
+<div data-signals="{online:false}">
+  <div class="driver-header">
+    <div>
+      <h2>Driver Dashboard</h2>
+      <p class="muted mt-4">{{if .UserName}}Welcome, {{.UserName}}.{{else}}Welcome back.{{end}} Toggle online to start accepting rides.</p>
+    </div>
+    <div class="online-toggle">
+      <label class="toggle-track">
+        <input type="checkbox" data-bind="online" data-on-change="@post('/api/driver/availability')">
+        <span class="toggle-thumb"></span>
+      </label>
+      <span class="online-label" id="online-label">Offline</span>
+    </div>
   </div>
-  <script>
-  (function () {
-    var DEF = [{{.DefaultLat}}, {{.DefaultLng}}];
-    var map = L.map('map').setView(DEF, 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
-    var mDriver = null, mPick = null, mDrop = null;
-    var walkTimer = null, cur = null, target = null;
 
-    function carIcon() { return L.divIcon({ html: '🚗', className: 'caricon', iconSize: [30, 30] }); }
+  <div id="driver-status"></div>
+  <div id="current-ride"></div>
 
-    window.setDriverMarker = function (lat, lng) {
-      var ll = [lat, lng];
-      if (mDriver) { mDriver.setLatLng(ll); } else { mDriver = L.marker(ll, { icon: carIcon() }).addTo(map).bindPopup('You'); }
-      map.panTo(ll, { animate: true });
-    };
+  <div class="map-wrap">
+    <div class="map-instructions" id="driver-map-hint">Go online to appear on the map</div>
+    <div id="map" class="map"></div>
+  </div>
 
-    function postLoc() {
-      if (!cur) return;
-      fetch('/api/driver/location', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat: cur.lat, lng: cur.lng })
-      });
-    }
+  <div data-on-load="@get('/api/driver/stream')"></div>
+</div>
 
-    window.startDrivingLoop = function () {
-      if (walkTimer) return;
-      if (!cur) cur = { lat: DEF[0], lng: DEF[1] };
+<script>
+(function () {
+  var DEF = [{{.DefaultLat}}, {{.DefaultLng}}];
+  var map = L.map('map').setView(DEF, 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>'
+  }).addTo(map);
+
+  var mDriver = null, mPick = null, mDrop = null;
+  var walkTimer = null, cur = null, target = null;
+  var hint = document.getElementById('driver-map-hint');
+  var label = document.getElementById('online-label');
+
+  var carIcon   = L.divIcon({ html: '<div style="font-size:22px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))">🚗</div>', className:'', iconSize:[26,26], iconAnchor:[13,13] });
+  var pickIcon  = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#2ecc8c;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+  var dropIcon  = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#6c8cff;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+
+  window.setDriverMarker = function (lat, lng) {
+    var ll = [lat, lng];
+    if (mDriver) mDriver.setLatLng(ll); else mDriver = L.marker(ll, { icon: carIcon }).addTo(map).bindTooltip('You');
+    map.panTo(ll, { animate: true, duration: 0.4 });
+  };
+
+  function postLoc() {
+    if (!cur) return;
+    fetch('/api/driver/location', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat: cur.lat, lng: cur.lng })
+    }).catch(function(){});
+  }
+
+  window.startDrivingLoop = function () {
+    if (walkTimer) return;
+    if (!cur) cur = { lat: DEF[0], lng: DEF[1] };
+    setDriverMarker(cur.lat, cur.lng);
+    postLoc();
+    label.textContent = 'Online';
+    hint.textContent = 'Waiting for a ride request…';
+    walkTimer = setInterval(function () {
+      if (target) {
+        cur.lat += (target.lat - cur.lat) * 0.22;
+        cur.lng += (target.lng - cur.lng) * 0.22;
+      }
       setDriverMarker(cur.lat, cur.lng);
       postLoc();
-      walkTimer = setInterval(function () {
-        if (target) {
-          cur.lat += (target.lat - cur.lat) * 0.25;
-          cur.lng += (target.lng - cur.lng) * 0.25;
-        }
-        setDriverMarker(cur.lat, cur.lng);
-        postLoc();
-      }, 2000);
-    };
+    }, 2000);
+  };
 
-    window.stopDrivingLoop = function () {
-      if (walkTimer) { clearInterval(walkTimer); walkTimer = null; }
-    };
+  window.stopDrivingLoop = function () {
+    if (walkTimer) { clearInterval(walkTimer); walkTimer = null; }
+    label.textContent = 'Offline';
+    hint.textContent = 'Go online to appear on the map';
+  };
 
-    window.onRideMatched = function (rid, plat, plng, dlat, dlng) {
-      if (!mPick) mPick = L.marker([plat, plng]).addTo(map).bindPopup('Pickup'); else mPick.setLatLng([plat, plng]);
-      if (!mDrop) mDrop = L.marker([dlat, dlng], { icon: L.divIcon({ html: '🏁', className: 'caricon', iconSize: [28, 28] }) }).addTo(map).bindPopup('Dropoff'); else mDrop.setLatLng([dlat, dlng]);
-      target = { lat: plat, lng: plng };
-      startDrivingLoop();
-    };
+  window.onRideMatched = function (rid, plat, plng, dlat, dlng) {
+    if (!mPick) mPick = L.marker([plat, plng], { icon: pickIcon }).addTo(map).bindTooltip('Pickup');
+    else mPick.setLatLng([plat, plng]);
+    if (!mDrop) mDrop = L.marker([dlat, dlng], { icon: dropIcon }).addTo(map).bindTooltip('Destination');
+    else mDrop.setLatLng([dlat, dlng]);
+    target = { lat: plat, lng: plng };
+    map.fitBounds([[plat, plng], [dlat, dlng], [cur.lat, cur.lng]], { padding: [52, 52] });
+    hint.textContent = 'Heading to pickup';
+    startDrivingLoop();
+  };
 
-    window.onRideStatus = function (s) {
-      if (s === 'ONGOING' && mDrop) {
-        target = { lat: mDrop.getLatLng().lat, lng: mDrop.getLatLng().lng };
-      }
-      if (s === 'COMPLETED' || s === 'CANCELLED') {
-        stopDrivingLoop();
-      }
-    };
-  })();
-  </script>
-  {{end}}
-</section>
+  window.onRideStatus = function (s) {
+    if (s === 'ONGOING' && mDrop) {
+      target = { lat: mDrop.getLatLng().lat, lng: mDrop.getLatLng().lng };
+      hint.textContent = 'Heading to destination';
+    }
+    if (s === 'COMPLETED' || s === 'CANCELLED') {
+      stopDrivingLoop();
+      hint.textContent = s === 'COMPLETED' ? 'Trip complete — ready for next ride' : 'Trip cancelled';
+    }
+  };
+})();
+</script>
+
+{{end}}
 {{end}}

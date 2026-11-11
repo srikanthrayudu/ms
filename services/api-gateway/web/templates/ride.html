@@ -1,32 +1,46 @@
 {{define "content"}}
-<section class="card">
-  <h2>Ride <code>{{.RideID}}</code></h2>
-  <div id="ride-status" class="status">Loading…</div>
-  <div id="map" class="map"></div>
+<div>
+  <div style="margin-bottom:20px">
+    <h2>Your ride</h2>
+    <p class="muted mt-4">Live updates will appear below as your driver approaches.</p>
+  </div>
+
+  <div id="ride-status" class="status pending">
+    <span class="badge pending">Finding your driver…</span>
+    <div class="driver">Searching for nearby drivers</div>
+  </div>
+
+  <div id="map" class="map" style="margin-bottom:0"></div>
+
   <div data-on-load="@get('/api/rides/{{.RideID}}/stream')"></div>
-</section>
+</div>
+
 <script>
 (function () {
   var DEF = [{{.DefaultLat}}, {{.DefaultLng}}];
-  var map = L.map('map').setView(DEF, 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  var map = L.map('map').setView(DEF, 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>'
+  }).addTo(map);
+
   var mPick = null, mDrop = null, mDriver = null;
 
-  function carIcon() { return L.divIcon({ html: '🚗', className: 'caricon', iconSize: [30, 30] }); }
+  var pickupIcon = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#2ecc8c;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+  var dropIcon   = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#6c8cff;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+  var carIcon    = L.divIcon({ html: '<div style="font-size:22px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))">🚗</div>', className:'', iconSize:[26,26], iconAnchor:[13,13] });
 
   window.placePickup = function (lat, lng) {
     var ll = [lat, lng];
-    if (mPick) mPick.setLatLng(ll); else mPick = L.marker(ll).addTo(map).bindPopup('Pickup');
-    map.fitBounds([ll, mDrop ? mDrop.getLatLng() : ll].length === 2 && mDrop ? [ll, mDrop.getLatLng()] : [ll, ll], { padding: [40, 40] });
+    if (mPick) mPick.setLatLng(ll); else mPick = L.marker(ll, { icon: pickupIcon }).addTo(map).bindTooltip('Pickup');
+    if (mDrop) map.fitBounds([ll, mDrop.getLatLng()], { padding: [52, 52] });
   };
   window.placeDropoff = function (lat, lng) {
     var ll = [lat, lng];
-    if (mDrop) mDrop.setLatLng(ll); else mDrop = L.marker(ll, { icon: L.divIcon({ html: '🏁', className: 'caricon', iconSize: [28, 28] }) }).addTo(map).bindPopup('Dropoff');
+    if (mDrop) mDrop.setLatLng(ll); else mDrop = L.marker(ll, { icon: dropIcon }).addTo(map).bindTooltip('Destination');
   };
   window.moveDriverMarker = function (lat, lng) {
     var ll = [lat, lng];
-    if (mDriver) { mDriver.setLatLng(ll); } else { mDriver = L.marker(ll, { icon: carIcon() }).addTo(map).bindPopup('Your driver'); }
-    map.panTo(ll, { animate: true });
+    if (mDriver) { mDriver.setLatLng(ll); } else { mDriver = L.marker(ll, { icon: carIcon }).addTo(map).bindTooltip('Your driver'); }
   };
 })();
 </script>

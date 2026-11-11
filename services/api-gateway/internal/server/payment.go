@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/starfederation/datastar-go/datastar"
 
@@ -43,26 +44,74 @@ func (a *App) apiGetPayment(w http.ResponseWriter, r *http.Request) {
 
 func renderPaymentList(resp *paymentv1.ListPaymentsResponse) string {
 	if len(resp.GetPayments()) == 0 {
-		return `<div id="payment-list" class="muted">No payments yet.</div>`
+		return `<div id="payment-list" class="muted" style="padding:24px 0;text-align:center">No payments yet. Complete a trip to see your history.</div>`
 	}
 	rows := ""
 	for _, p := range resp.GetPayments() {
-		statusLabel := p.GetStatus().String()
 		rows += fmt.Sprintf(`<tr>
-			<td><code>%s</code></td>
+			<td>%s</td>
 			<td><code>%s</code></td>
 			<td class="money">$%.2f</td>
-			<td><span class="badge %s">%s</span></td>
-		</tr>`, p.GetId()[:12], p.GetRideId()[:12], p.GetAmount(),
-			paymentStatusClass(p.GetStatus()), statusLabel)
+			<td><span class="chip %s">%s</span></td>
+		</tr>`,
+			formatUnix(p.GetCreatedAt()),
+			p.GetRideId()[:12],
+			p.GetAmount(),
+			paymentStatusChip(p.GetStatus()),
+			paymentStatusLabel(p.GetStatus()),
+		)
 	}
 	return fmt.Sprintf(`<div id="payment-list">
-		<div class="total-row">Total earned/spent: <strong>$%.2f</strong></div>
+		<div class="payments-header">
+			<div></div>
+			<div class="total-badge">
+				<span>Total</span>
+				<strong>$%.2f</strong>
+			</div>
+		</div>
 		<table class="payment-table">
-			<thead><tr><th>Payment</th><th>Ride</th><th>Amount</th><th>Status</th></tr></thead>
+			<thead><tr><th>Date</th><th>Ride</th><th>Amount</th><th>Status</th></tr></thead>
 			<tbody>%s</tbody>
 		</table>
 	</div>`, resp.GetTotal(), rows)
+}
+
+func formatUnix(ts int64) string {
+	if ts == 0 {
+		return "—"
+	}
+	t := time.Unix(ts, 0)
+	return t.Format("Jan 2, 15:04")
+}
+
+func paymentStatusLabel(s paymentv1.PaymentStatus) string {
+	switch s {
+	case paymentv1.PaymentStatus_COMPLETED:
+		return "Paid"
+	case paymentv1.PaymentStatus_PENDING:
+		return "Pending"
+	case paymentv1.PaymentStatus_FAILED:
+		return "Failed"
+	case paymentv1.PaymentStatus_REFUNDED:
+		return "Refunded"
+	default:
+		return s.String()
+	}
+}
+
+func paymentStatusChip(s paymentv1.PaymentStatus) string {
+	switch s {
+	case paymentv1.PaymentStatus_COMPLETED:
+		return "chip chip-green"
+	case paymentv1.PaymentStatus_PENDING:
+		return "chip chip-amber"
+	case paymentv1.PaymentStatus_FAILED:
+		return "chip chip-red"
+	case paymentv1.PaymentStatus_REFUNDED:
+		return "chip chip-blue"
+	default:
+		return "chip chip-muted"
+	}
 }
 
 func renderPaymentCard(p *paymentv1.Payment) string {
@@ -72,20 +121,7 @@ func renderPaymentCard(p *paymentv1.Payment) string {
 		<div>Amount: <strong>$%.2f</strong></div>
 		<div>Status: <span class="badge %s">%s</span></div>
 	</div>`, p.GetId(), p.GetRideId(), p.GetAmount(),
-		paymentStatusClass(p.GetStatus()), p.GetStatus().String())
-}
-
-func paymentStatusClass(s paymentv1.PaymentStatus) string {
-	switch s {
-	case paymentv1.PaymentStatus_COMPLETED:
-		return "done"
-	case paymentv1.PaymentStatus_FAILED:
-		return "cancelled"
-	case paymentv1.PaymentStatus_REFUNDED:
-		return "coming"
-	default:
-		return "pending"
-	}
+		paymentStatusChip(p.GetStatus()), paymentStatusLabel(p.GetStatus()))
 }
 
 // pagePayments renders the payment history page.
