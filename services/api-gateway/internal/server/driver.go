@@ -166,11 +166,11 @@ func renderDriverRidePanel(ride *ridev1.Ride) string {
 	var controls string
 	switch st {
 	case ridev1.RideStatus_MATCHED:
-		controls = fmt.Sprintf(`<button class="btn success sm" data-on-click="@post('/api/rides/%s/start')">I'm on the way →</button>`, id)
+		controls = fmt.Sprintf(`<button class="btn success sm" data-on:click="@post('/api/rides/%s/start')">I'm on the way →</button>`, id)
 	case ridev1.RideStatus_ON_THE_WAY:
-		controls = fmt.Sprintf(`<button class="btn success sm" data-on-click="@post('/api/rides/%s/pickup')">Passenger picked up →</button>`, id)
+		controls = fmt.Sprintf(`<button class="btn success sm" data-on:click="@post('/api/rides/%s/pickup')">Passenger picked up →</button>`, id)
 	case ridev1.RideStatus_ONGOING:
-		controls = fmt.Sprintf(`<button class="btn success sm" data-on-click="@post('/api/rides/%s/complete')">Complete trip →</button>`, id)
+		controls = fmt.Sprintf(`<button class="btn success sm" data-on:click="@post('/api/rides/%s/complete')">Complete trip →</button>`, id)
 	case ridev1.RideStatus_COMPLETED:
 		controls = fmt.Sprintf(`<div class="fare">$%.2f earned</div>`, ride.GetFare())
 	case ridev1.RideStatus_CANCELLED:

@@ -13,7 +13,7 @@
   </div>
 
   <div class="card" data-signals="{license:'',plate:'',model:''}">
-    <form data-on-submit="@post('/api/driver/onboard')">
+    <form data-on:submit="@post('/api/driver/onboard')">
       <label>
         <span>Driver's license number</span>
         <input data-bind="license" placeholder="e.g. DL-123456" required>
@@ -44,7 +44,7 @@
     </div>
     <div class="online-toggle">
       <label class="toggle-track">
-        <input type="checkbox" data-bind="online" data-on-change="@post('/api/driver/availability')">
+        <input type="checkbox" data-bind="online" data-on:change="@post('/api/driver/availability')">
         <span class="toggle-thumb"></span>
       </label>
       <span class="online-label" id="online-label">Offline</span>
@@ -59,7 +59,7 @@
     <div id="map" class="map"></div>
   </div>
 
-  <div data-on-load="@get('/api/driver/stream')"></div>
+  <div data-init="@get('/api/driver/stream')"></div>
 </div>
 
 <script>

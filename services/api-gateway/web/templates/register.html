@@ -4,7 +4,7 @@
   <p class="sub">Join Swiftride in under a minute.</p>
 
   <div class="card" data-signals="{email:'',password:'',name:'',phone:'',role:'passenger'}">
-    <form data-on-submit="@post('/api/register')">
+    <form data-on:submit="@post('/api/register')">
       <label>
         <span>Full name</span>
         <input data-bind="name" placeholder="Jane Smith" required autocomplete="name">

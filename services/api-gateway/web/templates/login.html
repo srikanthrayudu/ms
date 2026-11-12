@@ -22,7 +22,7 @@
   <div class="auth-divider">or sign in with email</div>
 
   <div class="card" data-signals="{email:'',password:''}">
-    <form data-on-submit="@post('/api/login')">
+    <form data-on:submit="@post('/api/login')">
       <label>
         <span>Email address</span>
         <input type="email" data-bind="email" placeholder="you@example.com" required autocomplete="email">

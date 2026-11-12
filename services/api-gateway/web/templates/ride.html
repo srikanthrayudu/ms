@@ -12,7 +12,7 @@
 
   <div id="map" class="map" style="margin-bottom:0"></div>
 
-  <div data-on-load="@get('/api/rides/{{.RideID}}/stream')"></div>
+  <div data-init="@get('/api/rides/{{.RideID}}/stream')"></div>
 </div>
 
 <script>

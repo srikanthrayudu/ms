@@ -22,9 +22,9 @@
       <a href="/payments">Payments</a>
       {{if eq .User.Role "driver"}}<a href="/driver">Drive</a>{{end}}
       <span id="notif-badge" class="notif-badge hidden">0</span>
-      <button class="notif-read-btn" data-on-click="@post('/api/notifications/read')" title="Mark all read">✓</button>
-      <button class="btn sm ghost" data-on-click="@post('/api/logout')">Sign out</button>
-      <div data-on-load="@get('/api/notifications/stream')"></div>
+      <button class="notif-read-btn" data-on:click="@post('/api/notifications/read')" title="Mark all read">✓</button>
+      <button class="btn sm ghost" data-on:click="@post('/api/logout')">Sign out</button>
+      <div data-init="@get('/api/notifications/stream')"></div>
     {{else}}
       <a href="/login">Sign in</a>
       <a class="btn sm primary" href="/register">Get started</a>

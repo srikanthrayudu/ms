@@ -93,17 +93,17 @@ tasks:
         {{.GOPATH}}/bin/nats-server -p 4222 -m 8222 >"{{.LOGDIR}}/nats.log" 2>&1 &
         sleep 1
 
-        # Start backend services
-        cd "{{.ROOT_DIR}}" && ./bin/user-service         >"{{.LOGDIR}}/user.log"         2>&1 &
-        cd "{{.ROOT_DIR}}" && ./bin/driver-service       >"{{.LOGDIR}}/driver.log"       2>&1 &
-        cd "{{.ROOT_DIR}}" && ./bin/location-service     >"{{.LOGDIR}}/location.log"     2>&1 &
-        cd "{{.ROOT_DIR}}" && ./bin/ride-service         >"{{.LOGDIR}}/ride.log"         2>&1 &
-        cd "{{.ROOT_DIR}}" && ./bin/payment-service      >"{{.LOGDIR}}/payment.log"      2>&1 &
-        cd "{{.ROOT_DIR}}" && ./bin/notification-service >"{{.LOGDIR}}/notification.log" 2>&1 &
+        # Start backend services (LOG_LEVEL=debug allows the default JWT_SECRET in dev)
+        cd "{{.ROOT_DIR}}" && LOG_LEVEL=debug ./bin/user-service         >"{{.LOGDIR}}/user.log"         2>&1 &
+        cd "{{.ROOT_DIR}}" && LOG_LEVEL=debug ./bin/driver-service       >"{{.LOGDIR}}/driver.log"       2>&1 &
+        cd "{{.ROOT_DIR}}" && LOG_LEVEL=debug ./bin/location-service     >"{{.LOGDIR}}/location.log"     2>&1 &
+        cd "{{.ROOT_DIR}}" && LOG_LEVEL=debug ./bin/ride-service         >"{{.LOGDIR}}/ride.log"         2>&1 &
+        cd "{{.ROOT_DIR}}" && LOG_LEVEL=debug ./bin/payment-service      >"{{.LOGDIR}}/payment.log"      2>&1 &
+        cd "{{.ROOT_DIR}}" && LOG_LEVEL=debug ./bin/notification-service >"{{.LOGDIR}}/notification.log" 2>&1 &
         sleep 1
 
         # Start gateway last (depends on all others)
-        cd "{{.ROOT_DIR}}" && ./bin/api-gateway >"{{.LOGDIR}}/gateway.log" 2>&1 &
+        cd "{{.ROOT_DIR}}" && LOG_LEVEL=debug ./bin/api-gateway >"{{.LOGDIR}}/gateway.log" 2>&1 &
         sleep 1
 
         echo ""

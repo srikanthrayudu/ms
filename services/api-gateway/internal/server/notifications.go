@@ -80,7 +80,7 @@ func renderNotifBadge(count int32) string {
 }
 
 func renderNotifToast(n *notificationv1.Notification) string {
-	return fmt.Sprintf(`<div id="toast-%s" class="toast" data-on-animationend="this.remove()">
+	return fmt.Sprintf(`<div id="toast-%s" class="toast" data-on:animationend="this.remove()">
 		<strong>%s</strong><div class="toast-body">%s</div>
 	</div>`, n.GetId(), escapeHTML(n.GetTitle()), escapeHTML(n.GetBody()))
 }
