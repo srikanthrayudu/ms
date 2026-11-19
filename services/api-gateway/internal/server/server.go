@@ -108,6 +108,12 @@ func (a *App) Routes() http.Handler {
 	staticFS, _ := fs.Sub(web.StaticFS, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(staticFS)))
 
+	// Health check for probes and orchestrators
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok\n"))
+	})
+
 	// Pages
 	mux.HandleFunc("GET /{$}", a.pageIndex)
 	mux.HandleFunc("GET /login", a.pageLogin)

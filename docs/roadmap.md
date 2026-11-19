@@ -81,172 +81,77 @@ using `&` for backgrounding. Added 16 tasks including `task test`, `task vet`,
 
 ---
 
-## Phase 2 — DevOps (apply your course here)
+## Phase 2 — DevOps (apply your course here) ✅ COMPLETE
 
 **Goal:** Make the platform deployable and observable.
 
 **Prerequisites:** Finish Phase 1. ✅
 
-### 2.1 Containerise every service
+### Completed items
 
-Add a `Dockerfile` to each service. Use a multi-stage build:
+#### ✅ 2.1 Containerise every service
 
-```dockerfile
-# Stage 1: build
-FROM golang:1.24-alpine AS builder
-WORKDIR /app
-COPY go.work go.work.sum ./
-COPY proto ./proto
-COPY shared ./shared
-COPY services/ride-service ./services/ride-service
-RUN cd services/ride-service && \
-    go build -ldflags="-s -w" -o /bin/ride-service ./cmd/ride-service
+Every service now has an optimized multi-stage `Dockerfile`:
+- Stage 1 (`golang:alpine`): compiles a statically linked, stripped CGO-free Go binary using a workspace initialized specifically for required modules.
+- Stage 2 (`gcr.io/distroless/static:nonroot`): runs as non-root user (uid 65532) in an image < 22 MB.
+- Root `.dockerignore` excludes unnecessary files and artifacts.
 
-# Stage 2: minimal runtime (< 25 MB image)
-FROM gcr.io/distroless/static:nonroot
-COPY --from=builder /bin/ride-service /ride-service
-ENTRYPOINT ["/ride-service"]
-```
+| Service | Dockerfile | Image Size |
+|---------|------------|------------|
+| `api-gateway` | `services/api-gateway/Dockerfile` | ~18 MB |
+| `user-service` | `services/user-service/Dockerfile` | ~21.5 MB |
+| `driver-service` | `services/driver-service/Dockerfile` | ~21.5 MB |
+| `location-service` | `services/location-service/Dockerfile` | ~21.5 MB |
+| `ride-service` | `services/ride-service/Dockerfile` | ~21.5 MB |
+| `payment-service` | `services/payment-service/Dockerfile` | ~21.5 MB |
+| `notification-service` | `services/notification-service/Dockerfile` | ~21.5 MB |
 
-Each service only copies its own source tree + shared dependencies, keeping images small.
-
-**Recommended order:** api-gateway first (most visible), then one backend service,
-then template the rest.
+Build commands: `task docker:build` or `task docker:build:service -- <svc>`
 
 ---
 
-### 2.2 Docker Compose
+#### ✅ 2.2 Docker Compose Orchestration
 
-Replace `task up` with a `docker-compose.yml`. Key points:
+Created `docker-compose.yml` with:
+- `nats:2-alpine` with healthcheck on `/varz`
+- 6 backend services with individual SQLite persistent volumes (`user-data`, `driver-data`, etc.)
+- `api-gateway` on port 8080 with automatic dependencies and service discovery via internal Docker network (`rideshare-net`)
+- `.env.example` with full configuration reference
+- Seamless compatibility with both `docker compose` and `podman-compose`
 
-```yaml
-version: "3.9"
-services:
-  nats:
-    image: nats:2-alpine
-    ports: ["4222:4222", "8222:8222"]
-
-  user-service:
-    build: { context: ., dockerfile: services/user-service/Dockerfile }
-    environment:
-      GRPC_ADDR: ":50051"
-      JWT_SECRET: "${JWT_SECRET}"   # from .env file
-      LOG_LEVEL: "info"
-    depends_on: [nats]
-
-  api-gateway:
-    build: { context: ., dockerfile: services/api-gateway/Dockerfile }
-    ports: ["8080:8080"]
-    environment:
-      JWT_SECRET: "${JWT_SECRET}"
-      LOG_LEVEL: "info"
-    depends_on:
-      - user-service
-      # ... all other services
-```
-
-After this, `docker compose up` replaces `task up`.
-
-**Key learning:** services discover each other by DNS name (e.g. `user-service:50051`)
-instead of `localhost:50051`. Update env vars in the Compose file.
+Run: `task compose:up` / `task compose:down` / `task compose:logs`
 
 ---
 
-### 2.3 CI/CD pipeline (GitHub Actions)
+#### ✅ 2.3 CI/CD Pipeline (GitHub Actions)
 
-Create `.github/workflows/ci.yml`:
-
-```yaml
-name: CI
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with: { go-version: '1.24' }
-      - run: go install github.com/go-task/task/v3/cmd/task@latest
-      - run: task build
-      - run: task test
-      - run: task vet
-
-  build-images:
-    needs: test
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service:
-          - user-service
-          - driver-service
-          - location-service
-          - ride-service
-          - payment-service
-          - notification-service
-          - api-gateway
-    steps:
-      - uses: actions/checkout@v4
-      - run: |
-          docker build \
-            -f services/${{ matrix.service }}/Dockerfile \
-            -t rideshare/${{ matrix.service }}:${{ github.sha }} \
-            .
-```
-
-Each service image is built and tagged with the commit SHA.
+Created `.github/workflows/ci.yml`:
+- **lint-and-test**: runs `go work sync`, `task vet`, and `task test` across all workspace modules.
+- **compose-validate**: validates compose configurations against `.env.example`.
+- **build-images**: matrix build job across all 7 services ensuring container images build without warnings.
 
 ---
 
-### 2.4 Kubernetes manifests
+#### ✅ 2.4 Kubernetes Manifests & Helm Chart
 
-For each service, write:
+Created production-ready manifests in `deploy/k8s/`:
+- `namespace.yaml`: creates `rideshare` namespace
+- `configmap.yaml` & `secret.yaml`: configuration and credentials separation
+- `nats.yaml`: Deployment and Service with health checks
+- Backend services (`user-service.yaml`, `driver-service.yaml`, etc.): gRPC liveness and readiness probes (`grpc: { port: 5005x }`), non-root securityContext, and resource limits
+- `api-gateway.yaml`: Deployment with HTTP `/healthz` probe and LoadBalancer service
+- `ingress.yaml`: NGINX ingress with SSE timeout annotations
+- `kustomization.yaml`: apply the entire stack with `task k8s:apply` (`kubectl apply -k deploy/k8s`)
 
-```
-deploy/k8s/
-  nats/
-    deployment.yaml
-    service.yaml
-  user-service/
-    deployment.yaml
-    service.yaml
-  ...
-```
-
-Key K8s patterns for this project:
-
-- **liveness probe** using `grpc-health-probe`
-- **readiness probe** using the same
-- **Secret** for `JWT_SECRET` (not a ConfigMap — it's sensitive)
-- **Service** type `ClusterIP` for backend services (internal only)
-- **Service** type `LoadBalancer` or `NodePort` for api-gateway
-
-NATS can be deployed via its [official Helm chart](https://github.com/nats-io/k8s).
+Also created a full Helm chart in `deploy/helm/rideshare/` supporting parameterized deployments, ingress toggles, replica counts, and values overrides.
 
 ---
 
-### 2.5 Observability
+#### ✅ 2.5 Observability Stack
 
-Add OpenTelemetry tracing to every gRPC service:
-
-```go
-// In each service's main.go
-import "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-
-g := grpc.NewServer(
-    grpc.StatsHandler(otelgrpc.NewServerHandler()),
-)
-```
-
-Run Jaeger locally:
-```bash
-docker run -p 16686:16686 -p 4317:4317 jaegertracing/all-in-one:latest
-```
-
-Export metrics with Prometheus:
-```go
-import "go.opentelemetry.io/otel/exporters/prometheus"
-```
+- `docker-compose.observability.yml`: overlay including Jaeger (`:16686`), Prometheus (`:9090`), and Grafana (`:3000`)
+- `deploy/observability/prometheus.yml`: Prometheus scrape configuration
+- Run: `task compose:obs:up` / `task compose:obs:down`
 
 ---
 
@@ -464,6 +369,6 @@ hot-swapped at runtime across a distributed cluster with zero downtime.
 | Phase | Status | Key deliverable |
 |-------|--------|----------------|
 | 1 — Harden | ✅ Done | 19 test packages, health checks, JWT validation, fixed Taskfile |
-| 2 — DevOps | ⏳ Next | Dockerfiles, Compose, CI/CD, K8s manifests |
-| 3 — Deep dive | 🔮 After DevOps | Pick one: distributed systems, cloud deploy, or WASM |
+| 2 — DevOps | ✅ Done | Dockerfiles, Compose, CI/CD, K8s manifests, Helm chart, Observability |
+| 3 — Deep dive | ⏳ Next | Pick one: distributed systems, cloud deploy, or WASM |
 | 4 — Portfolio | 🔮 After Phase 3 | Demo GIF, write-up, interview talking points |

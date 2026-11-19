@@ -1,0 +1,12 @@
+apiVersion: v2
+name: rideshare
+description: A microservices-based smart ride-sharing platform Helm chart
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - microservices
+  - ride-sharing
+  - grpc
+  - nats
+  - datastar

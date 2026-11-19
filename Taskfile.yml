@@ -5,6 +5,15 @@ vars:
     sh: go env GOPATH
   BINDIR: "{{.ROOT_DIR}}/bin"
   LOGDIR: /tmp/ms
+  CONTAINER_TOOL:
+    sh: which docker 2>/dev/null || which podman 2>/dev/null || echo docker
+  COMPOSE_CMD:
+    sh: |
+      if which docker-compose >/dev/null 2>&1; then echo "docker-compose";
+      elif docker compose version >/dev/null 2>&1; then echo "docker compose";
+      elif which podman-compose >/dev/null 2>&1; then echo "podman-compose";
+      elif podman compose version >/dev/null 2>&1; then echo "podman compose";
+      else echo "docker compose"; fi
 
 tasks:
 
@@ -150,7 +159,7 @@ tasks:
   test:
     desc: Run all tests across the entire workspace
     cmds:
-      - go test ./...
+      - go test ./shared/... ./services/user-service/... ./services/driver-service/... ./services/location-service/... ./services/ride-service/... ./services/payment-service/... ./services/notification-service/... ./services/api-gateway/...
 
   vet:
     desc: Run go vet across all modules
@@ -180,3 +189,76 @@ tasks:
     cmds:
       - rm -f "{{.LOGDIR}}"/*.log
       - echo "  🗑️   Cleaned {{.LOGDIR}}/*.log"
+
+  # ─────────────────────────────────────────────
+  # DevOps & Containers
+  # ─────────────────────────────────────────────
+  docker:build:
+    desc: Build all container images using Docker or Podman
+    cmds:
+      - for:
+          - user-service
+          - driver-service
+          - location-service
+          - ride-service
+          - payment-service
+          - notification-service
+          - api-gateway
+        cmd: "{{.CONTAINER_TOOL}} build -t rideshare/{{.ITEM}}:latest -f services/{{.ITEM}}/Dockerfile {{.ROOT_DIR}}"
+
+  docker:build:service:
+    desc: "Build a single container image (e.g. task docker:build:service -- ride-service)"
+    cmds:
+      - "{{.CONTAINER_TOOL}} build -t rideshare/{{.CLI_ARGS}}:latest -f services/{{.CLI_ARGS}}/Dockerfile {{.ROOT_DIR}}"
+
+  compose:up:
+    desc: Start the entire platform using Docker Compose or Podman Compose
+    cmds:
+      - "{{.COMPOSE_CMD}} up -d"
+      - echo "  🚀 Compose stack started. Gateway at http://localhost:8080"
+
+  compose:down:
+    desc: Stop and remove the compose containers
+    cmds:
+      - "{{.COMPOSE_CMD}} down"
+      - echo "  🛑 Compose stack stopped"
+
+  compose:logs:
+    desc: Tail compose logs across all services
+    cmds:
+      - "{{.COMPOSE_CMD}} logs -f"
+
+  compose:obs:up:
+    desc: Start the platform with full Observability (Jaeger, Prometheus, Grafana)
+    cmds:
+      - "{{.COMPOSE_CMD}} -f docker-compose.yml -f docker-compose.observability.yml up -d"
+      - echo "  🚀 Observability stack started."
+      - echo "  📊 Grafana    → http://localhost:3000 (admin/admin)"
+      - echo "  🔍 Jaeger     → http://localhost:16686"
+      - echo "  📈 Prometheus → http://localhost:9090"
+      - echo "  🌐 Gateway    → http://localhost:8080"
+
+  compose:obs:down:
+    desc: Stop the platform and observability stack
+    cmds:
+      - "{{.COMPOSE_CMD}} -f docker-compose.yml -f docker-compose.observability.yml down"
+
+  # ─────────────────────────────────────────────
+  # Kubernetes
+  # ─────────────────────────────────────────────
+  k8s:apply:
+    desc: Deploy all resources to Kubernetes via Kustomize
+    cmds:
+      - kubectl apply -k {{.ROOT_DIR}}/deploy/k8s
+      - echo "  ☸️  Kubernetes manifests applied to namespace 'rideshare'"
+
+  k8s:delete:
+    desc: Delete all resources from Kubernetes via Kustomize
+    cmds:
+      - kubectl delete -k {{.ROOT_DIR}}/deploy/k8s
+      - echo "  🗑️   Kubernetes manifests deleted"
+
+  k8s:status:
+    desc: Show status of pods, services and ingresses in namespace 'rideshare'
+    cmds:
+      - kubectl -n rideshare get pods,svc,ingress

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rideshare-config
+  namespace: rideshare
+data:
+  LOG_LEVEL: "info"
+  NATS_URL: "nats://nats:4222"
+  LOCATION_SERVICE_ADDR: "location-service:50053"
+  DRIVER_SERVICE_ADDR: "driver-service:50052"
+  USER_SERVICE_ADDR: "user-service:50051"
+  RIDE_SERVICE_ADDR: "ride-service:50054"
+  PAYMENT_SERVICE_ADDR: "payment-service:50055"
+  NOTIFICATION_SERVICE_ADDR: "notification-service:50056"

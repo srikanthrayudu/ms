@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rideshare.fullname" . }}-api-gateway
+  labels:
+    {{- include "rideshare.labels" . | nindent 4 }}
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/component: gateway
+spec:
+  replicas: {{ .Values.services.apiGateway.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "rideshare.fullname" . }}-api-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "rideshare.fullname" . }}-api-gateway
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: api-gateway
+          image: "{{ .Values.services.apiGateway.image.repository }}:{{ .Values.services.apiGateway.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.services.apiGateway.httpPort }}
+          env:
+            - name: HTTP_ADDR
+              value: ":{{ .Values.services.apiGateway.httpPort }}"
+            - name: USER_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "rideshare.fullname" . }}-config
+                  key: USER_SERVICE_ADDR
+            - name: DRIVER_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "rideshare.fullname" . }}-config
+                  key: DRIVER_SERVICE_ADDR
+            - name: LOCATION_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "rideshare.fullname" . }}-config
+                  key: LOCATION_SERVICE_ADDR
+            - name: RIDE_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "rideshare.fullname" . }}-config
+                  key: RIDE_SERVICE_ADDR
+            - name: PAYMENT_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "rideshare.fullname" . }}-config
+                  key: PAYMENT_SERVICE_ADDR
+            - name: NOTIFICATION_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "rideshare.fullname" . }}-config
+                  key: NOTIFICATION_SERVICE_ADDR
+            - name: NATS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "rideshare.fullname" . }}-config
+                  key: NATS_URL
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "rideshare.fullname" . }}-config
+                  key: LOG_LEVEL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "rideshare.fullname" . }}-secrets
+                  key: JWT_SECRET
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.services.apiGateway.httpPort }}
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.services.apiGateway.httpPort }}
+            initialDelaySeconds: 2
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rideshare.fullname" . }}-api-gateway
+  labels:
+    {{- include "rideshare.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.services.apiGateway.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "rideshare.fullname" . }}-api-gateway
+  ports:
+    - name: http
+      port: 8080
+      targetPort: {{ .Values.services.apiGateway.httpPort }}

@@ -1,0 +1,178 @@
+services:
+  # Message Broker
+  nats:
+    image: nats:2-alpine
+    container_name: rideshare-nats
+    restart: unless-stopped
+    ports:
+      - "4222:4222" # NATS protocol
+      - "8222:8222" # HTTP management & metrics
+    command: ["-p", "4222", "-m", "8222"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8222/varz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - rideshare-net
+
+  # User Service (Auth & Profiles)
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    container_name: rideshare-user-service
+    restart: unless-stopped
+    environment:
+      GRPC_ADDR: ":50051"
+      DB_PATH: "/app/data/user-service.db"
+      JWT_SECRET: "${JWT_SECRET:-super-secret-change-me-production-key-32chars!}"
+      LOG_LEVEL: "${LOG_LEVEL:-debug}"
+    volumes:
+      - user-data:/app/data
+    networks:
+      - rideshare-net
+
+  # Driver Service (Onboarding & Vehicle Info)
+  driver-service:
+    build:
+      context: .
+      dockerfile: services/driver-service/Dockerfile
+    container_name: rideshare-driver-service
+    restart: unless-stopped
+    environment:
+      GRPC_ADDR: ":50052"
+      DB_PATH: "/app/data/driver-service.db"
+      LOG_LEVEL: "${LOG_LEVEL:-debug}"
+    volumes:
+      - driver-data:/app/data
+    networks:
+      - rideshare-net
+
+  # Location Service (GPS Tracking & Proximity Search)
+  location-service:
+    build:
+      context: .
+      dockerfile: services/location-service/Dockerfile
+    container_name: rideshare-location-service
+    restart: unless-stopped
+    environment:
+      GRPC_ADDR: ":50053"
+      DB_PATH: "/app/data/location-service.db"
+      NATS_URL: "nats://nats:4222"
+      LOG_LEVEL: "${LOG_LEVEL:-debug}"
+    depends_on:
+      nats:
+        condition: service_healthy
+    volumes:
+      - location-data:/app/data
+    networks:
+      - rideshare-net
+
+  # Ride Service (Matching & State Machine)
+  ride-service:
+    build:
+      context: .
+      dockerfile: services/ride-service/Dockerfile
+    container_name: rideshare-ride-service
+    restart: unless-stopped
+    environment:
+      GRPC_ADDR: ":50054"
+      DB_PATH: "/app/data/ride-service.db"
+      NATS_URL: "nats://nats:4222"
+      LOCATION_SERVICE_ADDR: "location-service:50053"
+      DRIVER_SERVICE_ADDR: "driver-service:50052"
+      LOG_LEVEL: "${LOG_LEVEL:-debug}"
+    depends_on:
+      nats:
+        condition: service_healthy
+      location-service:
+        condition: service_started
+      driver-service:
+        condition: service_started
+    volumes:
+      - ride-data:/app/data
+    networks:
+      - rideshare-net
+
+  # Payment Service (Idempotent Ledger & Event Billing)
+  payment-service:
+    build:
+      context: .
+      dockerfile: services/payment-service/Dockerfile
+    container_name: rideshare-payment-service
+    restart: unless-stopped
+    environment:
+      GRPC_ADDR: ":50055"
+      DB_PATH: "/app/data/payment-service.db"
+      NATS_URL: "nats://nats:4222"
+      LOG_LEVEL: "${LOG_LEVEL:-debug}"
+    depends_on:
+      nats:
+        condition: service_healthy
+    volumes:
+      - payment-data:/app/data
+    networks:
+      - rideshare-net
+
+  # Notification Service (In-app notifications & SSE Dispatch)
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification-service/Dockerfile
+    container_name: rideshare-notification-service
+    restart: unless-stopped
+    environment:
+      GRPC_ADDR: ":50056"
+      DB_PATH: "/app/data/notification-service.db"
+      NATS_URL: "nats://nats:4222"
+      LOG_LEVEL: "${LOG_LEVEL:-debug}"
+    depends_on:
+      nats:
+        condition: service_healthy
+    volumes:
+      - notification-data:/app/data
+    networks:
+      - rideshare-net
+
+  # API Gateway (Web UI & Datastar SSE Hub)
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: rideshare-api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      HTTP_ADDR: ":8080"
+      USER_SERVICE_ADDR: "user-service:50051"
+      DRIVER_SERVICE_ADDR: "driver-service:50052"
+      LOCATION_SERVICE_ADDR: "location-service:50053"
+      RIDE_SERVICE_ADDR: "ride-service:50054"
+      PAYMENT_SERVICE_ADDR: "payment-service:50055"
+      NOTIFICATION_SERVICE_ADDR: "notification-service:50056"
+      JWT_SECRET: "${JWT_SECRET:-super-secret-change-me-production-key-32chars!}"
+      NATS_URL: "nats://nats:4222"
+      LOG_LEVEL: "${LOG_LEVEL:-debug}"
+    depends_on:
+      - user-service
+      - driver-service
+      - location-service
+      - ride-service
+      - payment-service
+      - notification-service
+    networks:
+      - rideshare-net
+
+networks:
+  rideshare-net:
+    driver: bridge
+
+volumes:
+  user-data:
+  driver-data:
+  location-data:
+  ride-data:
+  payment-data:
+  notification-data:

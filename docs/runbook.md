@@ -29,8 +29,8 @@ No Docker required.
 | Goal | Command |
 |------|---------|
 | Build all binaries | `task build` |
-| Start entire stack | `task up` |
-| Stop entire stack | `task down` |
+| Start entire stack (local) | `task up` |
+| Stop entire stack (local) | `task down` |
 | Tail all logs | `task logs` |
 | Tail one service | `task logs:service -- ride` |
 | Restart one service | `task restart -- ride-service` |
@@ -40,6 +40,76 @@ No Docker required.
 | Tidy all modules | `task tidy` |
 | Clean build + DBs | `task clean` |
 | Remove log files | `task clean:logs` |
+| Build all container images | `task docker:build` |
+| Start with Docker/Podman Compose | `task compose:up` |
+| Stop Compose stack | `task compose:down` |
+| Tail Compose logs | `task compose:logs` |
+| Start with Observability stack | `task compose:obs:up` |
+| Stop Observability stack | `task compose:obs:down` |
+| Deploy to Kubernetes | `task k8s:apply` |
+| Remove from Kubernetes | `task k8s:delete` |
+| Check Kubernetes status | `task k8s:status` |
+
+---
+
+## Container & Kubernetes Operations
+
+### Docker & Podman Compose
+
+The platform can be started with a single command without needing local Go or NATS:
+
+```bash
+# Copy example env file
+cp .env.example .env
+
+# Build container images
+task docker:build
+
+# Start stack in background
+task compose:up
+
+# View logs
+task compose:logs
+
+# Stop stack
+task compose:down
+```
+
+### Full Observability Stack (Jaeger + Prometheus + Grafana)
+
+To run the platform alongside Jaeger tracing, Prometheus scraping, and Grafana:
+
+```bash
+task compose:obs:up
+```
+
+Access points:
+- API Gateway: http://localhost:8080
+- Grafana: http://localhost:3000 (admin / admin)
+- Jaeger UI: http://localhost:16686
+- Prometheus: http://localhost:9090
+- NATS Dashboard: http://localhost:8222
+
+### Kubernetes Deployment (Kustomize & Helm)
+
+Deploy using native Kustomize manifests:
+
+```bash
+# Deploy all pods, services, ingress, and secrets
+kubectl apply -k deploy/k8s
+
+# Check deployment status
+kubectl -n rideshare get pods,svc,ingress
+
+# Tear down
+kubectl delete -k deploy/k8s
+```
+
+Deploy using Helm:
+
+```bash
+helm upgrade --install rideshare ./deploy/helm/rideshare -n rideshare --create-namespace
+```
 
 ---
 

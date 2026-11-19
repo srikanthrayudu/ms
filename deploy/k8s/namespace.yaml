@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rideshare
+  labels:
+    app.kubernetes.io/name: rideshare
+    app.kubernetes.io/part-of: rideshare-platform

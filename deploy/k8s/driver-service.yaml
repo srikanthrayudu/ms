@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: driver-service
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: driver-service
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: driver-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: driver-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: driver-service
+          image: rideshare/driver-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 50052
+          env:
+            - name: GRPC_ADDR
+              value: ":50052"
+            - name: DB_PATH
+              value: "/app/data/driver-service.db"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: LOG_LEVEL
+          livenessProbe:
+            grpc:
+              port: 50052
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            grpc:
+              port: 50052
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: driver-service
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: driver-service
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: driver-service
+  ports:
+    - name: grpc
+      port: 50052
+      targetPort: 50052

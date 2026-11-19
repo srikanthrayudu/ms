@@ -1,0 +1,8 @@
+.git
+.github
+bin/
+services/bin/
+data/
+*.db
+*.log
+docs/

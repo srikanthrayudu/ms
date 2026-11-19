@@ -1,0 +1,108 @@
+{{- $fullName := include "rideshare.fullname" . -}}
+{{- $labels := include "rideshare.labels" . -}}
+{{- $pullPolicy := .Values.global.imagePullPolicy -}}
+{{- $backendList := list
+  (dict "key" "userService" "name" "user-service" "port" .Values.services.userService.grpcPort "image" .Values.services.userService.image "replicas" .Values.services.userService.replicaCount "needsJWT" true)
+  (dict "key" "driverService" "name" "driver-service" "port" .Values.services.driverService.grpcPort "image" .Values.services.driverService.image "replicas" .Values.services.driverService.replicaCount "needsJWT" false)
+  (dict "key" "locationService" "name" "location-service" "port" .Values.services.locationService.grpcPort "image" .Values.services.locationService.image "replicas" .Values.services.locationService.replicaCount "needsJWT" false)
+  (dict "key" "rideService" "name" "ride-service" "port" .Values.services.rideService.grpcPort "image" .Values.services.rideService.image "replicas" .Values.services.rideService.replicaCount "needsJWT" false)
+  (dict "key" "paymentService" "name" "payment-service" "port" .Values.services.paymentService.grpcPort "image" .Values.services.paymentService.image "replicas" .Values.services.paymentService.replicaCount "needsJWT" false)
+  (dict "key" "notificationService" "name" "notification-service" "port" .Values.services.notificationService.grpcPort "image" .Values.services.notificationService.image "replicas" .Values.services.notificationService.replicaCount "needsJWT" false)
+-}}
+
+{{- range $svc := $backendList }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullName }}-{{ $svc.name }}
+  labels:
+    {{- $labels | nindent 4 }}
+    app.kubernetes.io/name: {{ $svc.name }}
+    app.kubernetes.io/component: backend
+spec:
+  replicas: {{ $svc.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $fullName }}-{{ $svc.name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $fullName }}-{{ $svc.name }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: {{ $svc.name }}
+          image: "{{ $svc.image.repository }}:{{ $svc.image.tag }}"
+          imagePullPolicy: {{ $pullPolicy }}
+          ports:
+            - name: grpc
+              containerPort: {{ $svc.port }}
+          env:
+            - name: GRPC_ADDR
+              value: ":{{ $svc.port }}"
+            - name: DB_PATH
+              value: "/app/data/{{ $svc.name }}.db"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ $fullName }}-config
+                  key: LOG_LEVEL
+            - name: NATS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ $fullName }}-config
+                  key: NATS_URL
+            - name: LOCATION_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ $fullName }}-config
+                  key: LOCATION_SERVICE_ADDR
+            - name: DRIVER_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ $fullName }}-config
+                  key: DRIVER_SERVICE_ADDR
+            {{- if $svc.needsJWT }}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $fullName }}-secrets
+                  key: JWT_SECRET
+            {{- end }}
+          livenessProbe:
+            grpc:
+              port: {{ $svc.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            grpc:
+              port: {{ $svc.port }}
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullName }}-{{ $svc.name }}
+  labels:
+    {{- $labels | nindent 4 }}
+    app.kubernetes.io/name: {{ $svc.name }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ $fullName }}-{{ $svc.name }}
+  ports:
+    - name: grpc
+      port: {{ $svc.port }}
+      targetPort: {{ $svc.port }}
+{{- end }}

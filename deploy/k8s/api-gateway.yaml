@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/component: gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: api-gateway
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: api-gateway
+          image: rideshare/api-gateway:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: HTTP_ADDR
+              value: ":8080"
+            - name: USER_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: USER_SERVICE_ADDR
+            - name: DRIVER_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: DRIVER_SERVICE_ADDR
+            - name: LOCATION_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: LOCATION_SERVICE_ADDR
+            - name: RIDE_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: RIDE_SERVICE_ADDR
+            - name: PAYMENT_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: PAYMENT_SERVICE_ADDR
+            - name: NOTIFICATION_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: NOTIFICATION_SERVICE_ADDR
+            - name: NATS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: NATS_URL
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: LOG_LEVEL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: rideshare-secrets
+                  key: JWT_SECRET
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: api-gateway
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: api-gateway
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

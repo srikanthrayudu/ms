@@ -111,6 +111,21 @@ task logs     # tail all service logs
 task down     # stop everything
 ```
 
+### Running with Docker Compose or Podman
+
+```bash
+task docker:build   # build all multi-stage distroless images
+task compose:up     # start NATS and all microservices via Compose
+task compose:logs   # tail container logs
+task compose:down   # stop containers
+```
+
+For full distributed tracing and metrics with Jaeger, Prometheus, and Grafana:
+
+```bash
+task compose:obs:up # launch with observability stack
+```
+
 ### Other tasks
 
 ```bash

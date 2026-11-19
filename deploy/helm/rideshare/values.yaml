@@ -1,0 +1,76 @@
+global:
+  imageRegistry: ""
+  imagePullPolicy: IfNotPresent
+  logLevel: "info"
+
+jwtSecret: "rideshare-production-super-secret-key-32chars!"
+
+nats:
+  image:
+    repository: nats
+    tag: 2-alpine
+  replicaCount: 1
+  service:
+    port: 4222
+    monitorPort: 8222
+
+services:
+  userService:
+    image:
+      repository: rideshare/user-service
+      tag: latest
+    replicaCount: 1
+    grpcPort: 50051
+
+  driverService:
+    image:
+      repository: rideshare/driver-service
+      tag: latest
+    replicaCount: 1
+    grpcPort: 50052
+
+  locationService:
+    image:
+      repository: rideshare/location-service
+      tag: latest
+    replicaCount: 1
+    grpcPort: 50053
+
+  rideService:
+    image:
+      repository: rideshare/ride-service
+      tag: latest
+    replicaCount: 1
+    grpcPort: 50054
+
+  paymentService:
+    image:
+      repository: rideshare/payment-service
+      tag: latest
+    replicaCount: 1
+    grpcPort: 50055
+
+  notificationService:
+    image:
+      repository: rideshare/notification-service
+      tag: latest
+    replicaCount: 1
+    grpcPort: 50056
+
+  apiGateway:
+    image:
+      repository: rideshare/api-gateway
+      tag: latest
+    replicaCount: 1
+    httpPort: 8080
+    service:
+      type: LoadBalancer
+
+ingress:
+  enabled: true
+  className: "nginx"
+  hosts:
+    - host: rideshare.local
+      paths:
+        - path: /
+          pathType: Prefix
