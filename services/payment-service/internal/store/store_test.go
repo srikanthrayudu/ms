@@ -104,3 +104,32 @@ func TestListByUser_Driver(t *testing.T) {
 		t.Errorf("expected total 8.0, got %f", total)
 	}
 }
+
+func TestUpdateStatus(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+
+	p := samplePayment("pay_1", "ride_1", "pass_1", "drv_1", 10.0)
+	if _, err := s.Create(ctx, p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if err := s.UpdateStatus(ctx, "ride_1", 4, "refunded on cancel"); err != nil {
+		t.Fatalf("UpdateStatus: %v", err)
+	}
+
+	updated, err := s.GetByRideID(ctx, "ride_1")
+	if err != nil {
+		t.Fatalf("GetByRideID: %v", err)
+	}
+	if updated.Status != 4 {
+		t.Errorf("expected status 4 (REFUNDED), got %d", updated.Status)
+	}
+	if updated.Notes != "refunded on cancel" {
+		t.Errorf("expected notes 'refunded on cancel', got %q", updated.Notes)
+	}
+
+	if err := s.UpdateStatus(ctx, "nonexistent", 4, "notes"); err != store.ErrNotFound {
+		t.Fatalf("expected ErrNotFound for nonexistent ride, got %v", err)
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net"
 	"os"
 	"os/signal"
@@ -23,6 +24,7 @@ import (
 	paymentv1 "ms/proto/gen/payment/v1"
 	"ms/shared/events"
 	mslog "ms/shared/log"
+	"ms/shared/telemetry"
 	"ms/payment-service/internal/config"
 	"ms/payment-service/internal/service"
 	"ms/payment-service/internal/store"
@@ -84,6 +86,26 @@ func main() {
 		}); err != nil {
 			logger.Warn("subscribe rides.*.completed", "err", err)
 		}
+
+		// Subscribe to ride cancellation events to execute compensating refund transaction (Saga pattern).
+		if _, err := nc.Subscribe("rides.*.cancelled", func(m *nats.Msg) {
+			var ev events.RideEvent
+			if err := json.Unmarshal(m.Data, &ev); err != nil {
+				logger.Warn("parse cancelled ride event", "err", err)
+				return
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := repo.UpdateStatus(ctx, ev.RideID, int(paymentv1.PaymentStatus_REFUNDED), "refunded on ride cancellation"); err != nil {
+				if !errors.Is(err, store.ErrNotFound) {
+					logger.Warn("refund ride payment error", "ride_id", ev.RideID, "err", err)
+				}
+			} else {
+				logger.Info("refunded ride payment (compensation)", "ride_id", ev.RideID)
+			}
+		}); err != nil {
+			logger.Warn("subscribe rides.*.cancelled", "err", err)
+		}
 	}
 
 	srv := service.New(repo, logger)
@@ -94,7 +116,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	g := grpc.NewServer()
+	telemetry.Init("payment-service")
+	telemetry.StartMetricsServer(cfg.MetricsAddr)
+	g := grpc.NewServer(telemetry.ServerStatsHandler())
 	grpc_health_v1.RegisterHealthServer(g, health.NewServer())
 	paymentv1.RegisterPaymentServiceServer(g, srv)
 

@@ -23,6 +23,7 @@ import (
 	ridev1 "ms/proto/gen/ride/v1"
 	"ms/shared/grpcclient"
 	"ms/shared/log"
+	"ms/shared/telemetry"
 	"ms/ride-service/internal/config"
 	"ms/ride-service/internal/service"
 	"ms/ride-service/internal/store"
@@ -31,6 +32,9 @@ import (
 func main() {
 	cfg := config.Load()
 	logger := log.New("ride-service", cfg.LogLevel)
+
+	telemetry.Init("ride-service")
+	telemetry.StartMetricsServer(cfg.MetricsAddr)
 
 	db, err := openDB(cfg.DBPath)
 	if err != nil {
@@ -91,7 +95,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	g := grpc.NewServer()
+	g := grpc.NewServer(telemetry.ServerStatsHandler())
 	grpc_health_v1.RegisterHealthServer(g, health.NewServer())
 	ridev1.RegisterRideServiceServer(g, srv)
 

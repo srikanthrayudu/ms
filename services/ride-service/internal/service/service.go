@@ -238,6 +238,9 @@ func (s *Server) publishEvent(r *store.Ride, st ridev1.RideStatus) {
 		ev.Fare = r.Fare
 		ev.DriverID = r.DriverID
 		ev.PassengerID = r.PassengerID
+	case ridev1.RideStatus_CANCELLED:
+		ev.DriverID = r.DriverID
+		ev.PassengerID = r.PassengerID
 	}
 	data, err := json.Marshal(ev)
 	if err != nil {

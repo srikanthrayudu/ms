@@ -24,6 +24,7 @@ import (
 	notificationv1 "ms/proto/gen/notification/v1"
 	"ms/shared/events"
 	mslog "ms/shared/log"
+	"ms/shared/telemetry"
 	"ms/notification-service/internal/config"
 	"ms/notification-service/internal/hub"
 	"ms/notification-service/internal/service"
@@ -72,7 +73,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	g := grpc.NewServer()
+	telemetry.Init("notification-service")
+	telemetry.StartMetricsServer(cfg.MetricsAddr)
+	g := grpc.NewServer(telemetry.ServerStatsHandler())
 	grpc_health_v1.RegisterHealthServer(g, health.NewServer())
 	notificationv1.RegisterNotificationServiceServer(g, svc)
 
@@ -136,10 +139,13 @@ func registerNATSSubscribers(nc *nats.Conn, repo *store.Store, h *hub.Hub, logge
 		if ev.DriverID != "" {
 			recipients = append(recipients, ev.DriverID)
 		}
+		if (ev.Type == events.RideCompleted || ev.Type == events.RideCancelled) && ev.PassengerID != "" {
+			recipients = append(recipients, ev.PassengerID)
+		}
 
 		for _, uid := range recipients {
 			n := &store.Notification{
-				ID:        fmt.Sprintf("notif_%s_%s", ev.Type, uid[:4]),
+				ID:        fmt.Sprintf("notif_%s_%s_%d", ev.Type, uid, time.Now().UnixNano()),
 				UserID:    uid,
 				Type:      int(nType),
 				Title:     title,

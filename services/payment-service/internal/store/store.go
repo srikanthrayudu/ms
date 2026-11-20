@@ -115,3 +115,20 @@ func (s *Store) ListByUser(ctx context.Context, userID, role string, limit int) 
 	}
 	return payments, total, rows.Err()
 }
+
+// UpdateStatus updates the payment status and notes for a ride.
+func (s *Store) UpdateStatus(ctx context.Context, rideID string, status int, notes string) error {
+	const q = `UPDATE payments SET status=?, notes=? WHERE ride_id=?`
+	res, err := s.db.ExecContext(ctx, q, status, notes, rideID)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

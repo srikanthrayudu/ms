@@ -10,22 +10,24 @@ import (
 
 // Config holds all user-service settings.
 type Config struct {
-	GRPCAddr   string
-	DBPath     string
-	JWTSecret  string
-	JWTTTL     time.Duration
-	LogLevel   string
+	GRPCAddr    string
+	DBPath      string
+	JWTSecret   string
+	JWTTTL      time.Duration
+	LogLevel    string
+	MetricsAddr string
 }
 
 // Load reads configuration from environment with sensible defaults.
 // It returns an error if JWT_SECRET is not set in production.
 func Load() Config {
 	return Config{
-		GRPCAddr:  msconfig.Env("GRPC_ADDR", ":50051"),
-		DBPath:    msconfig.Env("DB_PATH", "data/user-service.db"),
-		JWTSecret: msconfig.Env("JWT_SECRET", "super-secret-change-me"),
-		JWTTTL:    24 * time.Hour,
-		LogLevel:  msconfig.Env("LOG_LEVEL", "info"),
+		GRPCAddr:    msconfig.Env("GRPC_ADDR", ":50051"),
+		DBPath:      msconfig.Env("DB_PATH", "data/user-service.db"),
+		JWTSecret:   msconfig.Env("JWT_SECRET", "super-secret-change-me"),
+		JWTTTL:      24 * time.Hour,
+		LogLevel:    msconfig.Env("LOG_LEVEL", "info"),
+		MetricsAddr: msconfig.Env("METRICS_ADDR", ":9090"),
 	}
 }
 

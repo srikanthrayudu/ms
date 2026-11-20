@@ -22,11 +22,15 @@ import (
 	"ms/driver-service/internal/service"
 	"ms/driver-service/internal/store"
 	"ms/shared/log"
+	"ms/shared/telemetry"
 )
 
 func main() {
 	cfg := config.Load()
 	logger := log.New("driver-service", cfg.LogLevel)
+
+	telemetry.Init("driver-service")
+	telemetry.StartMetricsServer(cfg.MetricsAddr)
 
 	db, err := openDB(cfg.DBPath)
 	if err != nil {
@@ -49,7 +53,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	g := grpc.NewServer()
+	g := grpc.NewServer(telemetry.ServerStatsHandler())
 	grpc_health_v1.RegisterHealthServer(g, health.NewServer())
 	driverv1.RegisterDriverServiceServer(g, srv)
 

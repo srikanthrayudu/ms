@@ -17,6 +17,7 @@ import (
 	"ms/api-gateway/web"
 	userv1 "ms/proto/gen/user/v1"
 	mslog "ms/shared/log"
+	"ms/shared/telemetry"
 )
 
 // DefaultLat/DefaultLng is the city centre used to seed all demo maps so that
@@ -114,6 +115,9 @@ func (a *App) Routes() http.Handler {
 		_, _ = w.Write([]byte("ok\n"))
 	})
 
+	// Prometheus metrics for monitoring and scraping
+	mux.Handle("GET /metrics", telemetry.MetricsHandler())
+
 	// Pages
 	mux.HandleFunc("GET /{$}", a.pageIndex)
 	mux.HandleFunc("GET /login", a.pageLogin)
@@ -134,6 +138,7 @@ func (a *App) Routes() http.Handler {
 	mux.HandleFunc("POST /api/rides/{id}/start", a.requireAuthAPI(a.apiRideStart))
 	mux.HandleFunc("POST /api/rides/{id}/pickup", a.requireAuthAPI(a.apiRidePickup))
 	mux.HandleFunc("POST /api/rides/{id}/complete", a.requireAuthAPI(a.apiRideComplete))
+	mux.HandleFunc("POST /api/rides/{id}/cancel", a.requireAuthAPI(a.apiRideCancel))
 
 	// Driver API
 	mux.HandleFunc("POST /api/driver/onboard", a.requireAuthAPI(a.apiDriverOnboard))

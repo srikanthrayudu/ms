@@ -178,11 +178,17 @@ func renderRideStatusPanel(ride *ridev1.Ride) string {
 		fare = fmt.Sprintf(`<div class="fare">$%.2f</div>`, ride.GetFare())
 	}
 
+	cancelBtn := ""
+	if st == ridev1.RideStatus_REQUESTED || st == ridev1.RideStatus_MATCHED || st == ridev1.RideStatus_ON_THE_WAY {
+		cancelBtn = fmt.Sprintf(`<div style="margin-top:10px;"><button class="btn danger sm" data-on:click="@post('/api/rides/%s/cancel')">Cancel ride</button></div>`, ride.GetId())
+	}
+
 	return fmt.Sprintf(`<div id="ride-status" class="status %s">
 		<span class="badge %s">%s</span>
 		<div class="driver">%s %s</div>
 		%s
-	</div>`, cls, cls, title, icon, sub, fare)
+		%s
+	</div>`, cls, cls, title, icon, sub, fare, cancelBtn)
 }
 
 func statusClass(status string) string {
@@ -215,6 +221,11 @@ func (a *App) apiRidePickup(w http.ResponseWriter, r *http.Request) {
 // apiRideComplete advances a ride to COMPLETED.
 func (a *App) apiRideComplete(w http.ResponseWriter, r *http.Request) {
 	a.updateRideStatus(w, r, ridev1.RideStatus_COMPLETED)
+}
+
+// apiRideCancel advances a ride to CANCELLED (triggers Saga compensation).
+func (a *App) apiRideCancel(w http.ResponseWriter, r *http.Request) {
+	a.updateRideStatus(w, r, ridev1.RideStatus_CANCELLED)
 }
 
 func (a *App) updateRideStatus(w http.ResponseWriter, r *http.Request, status ridev1.RideStatus) {

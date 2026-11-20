@@ -19,6 +19,7 @@ import (
 
 	userv1 "ms/proto/gen/user/v1"
 	"ms/shared/log"
+	"ms/shared/telemetry"
 	"ms/user-service/internal/config"
 	"ms/user-service/internal/service"
 	"ms/user-service/internal/store"
@@ -27,6 +28,9 @@ import (
 func main() {
 	cfg := config.Load()
 	logger := log.New("user-service", cfg.LogLevel)
+
+	telemetry.Init("user-service")
+	telemetry.StartMetricsServer(cfg.MetricsAddr)
 
 	if err := cfg.Validate(); err != nil {
 		logger.Error("invalid configuration", "err", err)
@@ -54,7 +58,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	g := grpc.NewServer()
+	g := grpc.NewServer(telemetry.ServerStatsHandler())
 	grpc_health_v1.RegisterHealthServer(g, health.NewServer())
 	userv1.RegisterUserServiceServer(g, srv)
 

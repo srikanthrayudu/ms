@@ -4,7 +4,10 @@ go 1.26.0
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/prometheus/client_golang v1.24.0
 	github.com/tursodatabase/libsql-client-go v0.0.0-20260528064733-9d5d30a29a60
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.70.0
+	go.opentelemetry.io/otel v1.45.0
 	google.golang.org/grpc v1.85.0
 	modernc.org/sqlite v1.62.0
 )

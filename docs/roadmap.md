@@ -163,11 +163,40 @@ Also created a full Helm chart in `deploy/helm/rideshare/` supporting parameteri
 
 ---
 
-### Track A — Distributed Systems
+### Track A — Distributed Systems ✅ COMPLETE
 
 **Estimated time:** 3–4 weeks
 
-**Step 1 — NATS JetStream (durable event log)**
+**Step 3 — Ride cancellation with compensation** ✅
+
+Fully implemented Saga pattern for ride cancellation:
+1. ride-service sets status to `CANCELLED` and emits `rides.<id>.cancelled` with `DriverID` + `PassengerID`.
+2. payment-service listens → marks any existing charge as `REFUNDED` via `store.UpdateStatus`.
+3. notification-service listens → notifies both passenger and driver with tailored messages.
+4. Cancel button added to passenger and driver UIs (api-gateway).
+
+**Step 2 — OpenTelemetry tracing** ✅
+
+All 6 gRPC backend services now have W3C TraceContext propagation:
+- `shared/telemetry` package provides `Init(serviceName)`, `ServerStatsHandler()`, `ClientStatsHandler()`.
+- All gRPC servers: `grpc.NewServer(telemetry.ServerStatsHandler())`.
+- All gRPC clients (via `shared/grpcclient.Dial()`): automatically include `telemetry.ClientStatsHandler()`.
+- Traces can be collected by Jaeger at `:16686` when using `task compose:obs:up`.
+
+**Step 2 — Prometheus metrics** ✅
+
+Every service now exposes a `/metrics` endpoint:
+- api-gateway: port `8080` (same HTTP server, `/metrics` route)
+- user-service: port `9090`
+- driver-service: port `9091`
+- location-service: port `9092`
+- ride-service: port `9093`
+- payment-service: port `9094`
+- notification-service: port `9095`
+
+Configure via `METRICS_ADDR` env var. Prometheus scrape config updated at `deploy/observability/prometheus.yml`.
+
+---
 
 Upgrade from Core NATS to JetStream so events survive NATS restarts:
 
@@ -370,5 +399,5 @@ hot-swapped at runtime across a distributed cluster with zero downtime.
 |-------|--------|----------------|
 | 1 — Harden | ✅ Done | 19 test packages, health checks, JWT validation, fixed Taskfile |
 | 2 — DevOps | ✅ Done | Dockerfiles, Compose, CI/CD, K8s manifests, Helm chart, Observability |
-| 3 — Deep dive | ⏳ Next | Pick one: distributed systems, cloud deploy, or WASM |
+| 3 — Deep dive | ✅ Done | Saga cancellation pattern, OTel tracing, Prometheus /metrics on all 7 services |
 | 4 — Portfolio | 🔮 After Phase 3 | Demo GIF, write-up, interview talking points |

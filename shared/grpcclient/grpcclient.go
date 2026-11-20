@@ -2,12 +2,18 @@
 package grpcclient
 
 import (
+	"ms/shared/telemetry"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// Dial opens an insecure gRPC client connection to addr.
+// Dial opens an insecure gRPC client connection to addr with OpenTelemetry tracing.
 // Suitable for local development only; swap for TLS in production.
 func Dial(addr string) (*grpc.ClientConn, error) {
-	return grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	return grpc.NewClient(
+		addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		telemetry.ClientStatsHandler(),
+	)
 }
