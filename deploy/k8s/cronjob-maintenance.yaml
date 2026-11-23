@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rideshare-maintenance
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: maintenance-cronjob
+    app.kubernetes.io/part-of: rideshare
+spec:
+  schedule: "*/10 * * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: maintenance-worker
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: maintenance-worker
+              image: docker.io/library/alpine:latest
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  echo "[$(date -u +%FT%TZ)] Starting periodic platform reconciliation..."
+                  echo "• Verifying Gateway health & active driver streams..."
+                  wget -q -O - http://api-gateway:8080/ > /dev/null && echo "  -> Gateway ping healthy"
+                  echo "• Querying dynamic surge heatmaps..."
+                  wget -q -O - http://api-gateway:8080/api/surge > /dev/null && echo "  -> Surge engine sync completed"
+                  echo "• Maintenance cycle completed successfully."

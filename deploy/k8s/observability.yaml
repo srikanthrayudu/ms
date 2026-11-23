@@ -71,10 +71,15 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /etc/prometheus
+            - name: storage
+              mountPath: /prometheus
       volumes:
         - name: config
           configMap:
             name: prometheus-config
+        - name: storage
+          persistentVolumeClaim:
+            claimName: prometheus-storage
 ---
 apiVersion: v1
 kind: Service

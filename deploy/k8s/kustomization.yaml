@@ -7,6 +7,7 @@ resources:
   - namespace.yaml
   - configmap.yaml
   - secret.yaml
+  - pvc.yaml
   - nats.yaml
   - user-service.yaml
   - driver-service.yaml
@@ -17,3 +18,5 @@ resources:
   - api-gateway.yaml
   - ingress.yaml
   - observability.yaml
+  - job-smoke-test.yaml
+  - cronjob-maintenance.yaml

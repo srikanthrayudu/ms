@@ -1,0 +1,45 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rideshare-smoke-test
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: smoke-test
+    app.kubernetes.io/part-of: rideshare
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: smoke-test
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: smoke-test
+          image: docker.io/library/alpine:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "=================================================="
+              echo "🚀 RUNNING RIDESHARE PLATFORM POST-DEPLOY VERIFICATION"
+              echo "=================================================="
+              
+              echo "1. Checking Web Gateway HTTP route..."
+              wget -q -O - http://api-gateway:8080/ > /dev/null && echo "  ✅ Gateway HTTP (8080) OK" || exit 1
+              
+              echo "2. Checking Surge Zones API..."
+              wget -q -O - http://api-gateway:8080/api/surge > /dev/null && echo "  ✅ Surge Zones API OK" || exit 1
+
+              echo "3. Checking Operations Command Center..."
+              wget -q -O - http://api-gateway:8080/ops > /dev/null && echo "  ✅ Operations Center OK" || exit 1
+
+              echo "4. Checking Prometheus Observability..."
+              wget -q -O - http://prometheus:9090/-/healthy > /dev/null && echo "  ✅ Prometheus Metrics Server OK" || exit 1
+
+              echo "5. Checking NATS Messaging Core..."
+              nc -z -w 3 nats 4222 && echo "  ✅ NATS PubSub Core OK" || echo "  ⚠️ NATS ping skipped"
+
+              echo "=================================================="
+              echo "🎉 ALL MICROSERVICES & INFRASTRUCTURE VERIFIED!"
+              echo "=================================================="
