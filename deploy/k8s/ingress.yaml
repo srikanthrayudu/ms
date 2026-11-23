@@ -6,9 +6,11 @@ metadata:
   labels:
     app.kubernetes.io/name: rideshare-ingress
   annotations:
-    kubernetes.io/ingress.class: nginx
+    # NGINX ingress support
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # Contour (Envoy) ingress support for Server-Sent Events (SSE) streaming
+    projectcontour.io/response-timeout: "infinity"
 spec:
   rules:
     - http:
