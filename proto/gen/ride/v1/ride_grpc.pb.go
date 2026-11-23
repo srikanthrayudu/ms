@@ -29,17 +29,11 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// RideService owns the ride lifecycle: request -> match -> on-the-way ->
-// ongoing -> completed. Matching delegates nearby-driver queries to the
-// LocationService and publishes lifecycle events on NATS.
+// RideService owns the ride lifecycle.
 type RideServiceClient interface {
-	// RequestRide creates a ride, matches a nearby driver, and returns the ride.
 	RequestRide(ctx context.Context, in *RequestRideRequest, opts ...grpc.CallOption) (*Ride, error)
-	// GetRide returns the current state of a ride.
 	GetRide(ctx context.Context, in *GetRideRequest, opts ...grpc.CallOption) (*Ride, error)
-	// UpdateRideStatus advances a ride through its lifecycle.
 	UpdateRideStatus(ctx context.Context, in *UpdateRideStatusRequest, opts ...grpc.CallOption) (*Ride, error)
-	// ListMyRides lists rides for a passenger or driver.
 	ListMyRides(ctx context.Context, in *ListMyRidesRequest, opts ...grpc.CallOption) (*ListMyRidesResponse, error)
 }
 
@@ -95,17 +89,11 @@ func (c *rideServiceClient) ListMyRides(ctx context.Context, in *ListMyRidesRequ
 // All implementations must embed UnimplementedRideServiceServer
 // for forward compatibility.
 //
-// RideService owns the ride lifecycle: request -> match -> on-the-way ->
-// ongoing -> completed. Matching delegates nearby-driver queries to the
-// LocationService and publishes lifecycle events on NATS.
+// RideService owns the ride lifecycle.
 type RideServiceServer interface {
-	// RequestRide creates a ride, matches a nearby driver, and returns the ride.
 	RequestRide(context.Context, *RequestRideRequest) (*Ride, error)
-	// GetRide returns the current state of a ride.
 	GetRide(context.Context, *GetRideRequest) (*Ride, error)
-	// UpdateRideStatus advances a ride through its lifecycle.
 	UpdateRideStatus(context.Context, *UpdateRideStatusRequest) (*Ride, error)
-	// ListMyRides lists rides for a passenger or driver.
 	ListMyRides(context.Context, *ListMyRidesRequest) (*ListMyRidesResponse, error)
 	mustEmbedUnimplementedRideServiceServer()
 }

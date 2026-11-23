@@ -1,4 +1,4 @@
-// Package service implements the gRPC RideService.
+// Package service implements the gRPC RideService including pool (carpool) matching.
 package service
 
 import (
@@ -8,39 +8,40 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"sort"
 	"time"
 
 	"github.com/nats-io/nats.go"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	driverv1 "ms/proto/gen/driver/v1"
+	driverv1   "ms/proto/gen/driver/v1"
 	locationv1 "ms/proto/gen/location/v1"
-	ridev1 "ms/proto/gen/ride/v1"
+	ridev1     "ms/proto/gen/ride/v1"
 	"ms/shared/events"
 	"ms/shared/geo"
 	"ms/ride-service/internal/store"
 )
 
-// Nearby driver search radius (meters) and result cap used during matching.
 const (
 	matchRadiusMeters = 3000
 	matchLimit        = 5
+	poolMaxRiders     = 3    // seats per pool trip
+	poolJoinRadiusM   = 1500 // how close a passenger's pickup must be to join a pool
 )
 
 // Server implements ridev1.RideServiceServer.
 type Server struct {
 	ridev1.UnimplementedRideServiceServer
-	repo          *store.Store
+	repo           *store.Store
 	locationClient locationv1.LocationServiceClient
 	driverClient   driverv1.DriverServiceClient
-	nc            *nats.Conn
-	log           *slog.Logger
+	nc             *nats.Conn
+	log            *slog.Logger
 }
 
-// New creates a RideService gRPC server.
-func New(repo *store.Store, locationClient locationv1.LocationServiceClient, driverClient driverv1.DriverServiceClient, nc *nats.Conn, log *slog.Logger) *Server {
-	return &Server{repo: repo, locationClient: locationClient, driverClient: driverClient, nc: nc, log: log}
+func New(repo *store.Store, loc locationv1.LocationServiceClient, drv driverv1.DriverServiceClient, nc *nats.Conn, log *slog.Logger) *Server {
+	return &Server{repo: repo, locationClient: loc, driverClient: drv, nc: nc, log: log}
 }
 
 func newID() string {
@@ -49,9 +50,8 @@ func newID() string {
 	return "r_" + hex.EncodeToString(b)
 }
 
-// RequestRide creates a ride, attempts to match a nearby driver, and returns
-// the ride. The ride is always returned; its status is MATCHED if a driver was
-// assigned, otherwise REQUESTED.
+// ─── RequestRide ───────────────────────────────────────────────────────────
+
 func (s *Server) RequestRide(ctx context.Context, req *ridev1.RequestRideRequest) (*ridev1.Ride, error) {
 	pickup := req.GetPickup()
 	dropoff := req.GetDropoff()
@@ -60,123 +60,210 @@ func (s *Server) RequestRide(ctx context.Context, req *ridev1.RequestRideRequest
 	}
 
 	distance := geo.Haversine(pickup.GetLatitude(), pickup.GetLongitude(), dropoff.GetLatitude(), dropoff.GetLongitude())
+	rideType := store.RideTypeSolo
+	if req.GetType() == ridev1.RideType_POOL {
+		rideType = store.RideTypePool
+	}
+
+	// ── POOL: try to join an existing open pool trip ───────────────────────
+	if rideType == store.RideTypePool {
+		joined, ride, err := s.tryJoinPool(ctx, req, distance)
+		if err != nil {
+			s.log.Warn("pool join attempt failed", "err", err)
+		}
+		if joined && ride != nil {
+			return ride, nil
+		}
+	}
+
+	// ── Create a new ride (SOLO or new POOL trip) ──────────────────────────
 	r := &store.Ride{
 		ID:             newID(),
 		PassengerID:    req.GetPassengerId(),
-		DriverID:        "",
-		PickupLat:       pickup.GetLatitude(),
-		PickupLng:       pickup.GetLongitude(),
-		PickupAddr:      pickup.GetAddress(),
-		DropoffLat:      dropoff.GetLatitude(),
-		DropoffLng:      dropoff.GetLongitude(),
-		DropoffAddr:     dropoff.GetAddress(),
-		Status:          int(ridev1.RideStatus_REQUESTED),
-		Fare:            0,
-		DistanceMeters:  distance,
-		RequestedAt:     time.Now().Unix(),
-		CompletedAt:     0,
+		PickupLat:      pickup.GetLatitude(),
+		PickupLng:      pickup.GetLongitude(),
+		PickupAddr:     pickup.GetAddress(),
+		DropoffLat:     dropoff.GetLatitude(),
+		DropoffLng:     dropoff.GetLongitude(),
+		DropoffAddr:    dropoff.GetAddress(),
+		Status:         int(ridev1.RideStatus_REQUESTED),
+		DistanceMeters: distance,
+		RequestedAt:    time.Now().Unix(),
+		RideType:       rideType,
+		MaxRiders:      poolMaxRiders,
+		RiderCount:     1,
 	}
 	if err := s.repo.Create(ctx, r); err != nil {
 		s.log.Error("create ride", "err", err)
 		return nil, status.Error(codes.Internal, "failed to create ride")
 	}
-	s.log.Info("ride requested", "id", r.ID, "passenger_id", r.PassengerID, "distance_meters", r.DistanceMeters)
 
-	// Attempt to match a nearby available driver (nearest first).
+	// For pool trips, also insert the first rider row.
+	if rideType == store.RideTypePool {
+		fareShare := geo.PoolFare(distance, 1) // alone for now; recalculated as riders join
+		_ = s.repo.AddRider(ctx, &store.Rider{
+			RideID:      r.ID,
+			PassengerID: req.GetPassengerId(),
+			PickupLat:   pickup.GetLatitude(),
+			PickupLng:   pickup.GetLongitude(),
+			DropoffLat:  dropoff.GetLatitude(),
+			DropoffLng:  dropoff.GetLongitude(),
+			FareShare:   fareShare,
+			Status:      store.RiderPending,
+		})
+	}
+
+	s.log.Info("ride created", "id", r.ID, "type", rideType, "passenger", r.PassengerID)
+
 	if s.tryMatchDriver(ctx, r) {
 		s.publishEvent(r, ridev1.RideStatus_MATCHED)
 	} else {
 		s.publishEvent(r, ridev1.RideStatus_REQUESTED)
 	}
-	return toProtoRide(r), nil
+	return s.rideWithRiders(ctx, r), nil
 }
 
-// tryMatchDriver queries nearby drivers and assigns the first available one.
-// It mutates r in place on success and returns true; on failure r is unchanged.
-func (s *Server) tryMatchDriver(ctx context.Context, r *store.Ride) bool {
-	if s.locationClient == nil || s.driverClient == nil {
-		return false
+// tryJoinPool attempts to find an existing open pool trip the passenger can join.
+// Returns (true, Ride) on success.
+func (s *Server) tryJoinPool(ctx context.Context, req *ridev1.RequestRideRequest, distanceMeters float64) (bool, *ridev1.Ride, error) {
+	candidates, err := s.repo.FindOpenPoolRides(ctx,
+		req.GetPickup().GetLatitude(), req.GetPickup().GetLongitude(),
+		poolJoinRadiusM, 20)
+	if err != nil || len(candidates) == 0 {
+		return false, nil, err
 	}
-	nearby, err := s.locationClient.GetNearbyDrivers(ctx, &locationv1.GetNearbyDriversRequest{
-		Latitude:      r.PickupLat,
-		Longitude:     r.PickupLng,
-		RadiusMeters:  matchRadiusMeters,
-		Limit:         matchLimit,
-	})
-	if err != nil {
-		s.log.Warn("get nearby drivers", "err", err)
-		return false
+
+	// Sort by distance from this passenger's pickup to the existing trip's pickup.
+	type scored struct {
+		ride *store.Ride
+		dist float64
 	}
-	for _, d := range nearby.GetDrivers() {
-		avail, err := s.driverClient.GetAvailability(ctx, &driverv1.GetAvailabilityRequest{Id: d.GetDriverId()})
-		if err != nil {
-			s.log.Warn("get driver availability", "err", err, "driver_id", d.GetDriverId())
-			continue
+	var sc []scored
+	for _, c := range candidates {
+		if c.PassengerID == req.GetPassengerId() {
+			continue // don't join your own trip
 		}
-		if !avail.GetIsAvailable() {
-			continue
+		d := geo.Haversine(req.GetPickup().GetLatitude(), req.GetPickup().GetLongitude(),
+			c.PickupLat, c.PickupLng)
+		if d <= poolJoinRadiusM {
+			sc = append(sc, scored{c, d})
 		}
-		// Assign the first available, nearest driver.
-		r.DriverID = d.GetDriverId()
-		r.Status = int(ridev1.RideStatus_MATCHED)
-		if err := s.repo.Update(ctx, r); err != nil {
-			s.log.Error("update ride on match", "err", err, "ride_id", r.ID)
-			// Revert in-memory state to match the still-REQUESTED row.
-			r.DriverID = ""
-			r.Status = int(ridev1.RideStatus_REQUESTED)
-			return false
-		}
-		s.log.Info("ride matched", "ride_id", r.ID, "driver_id", r.DriverID)
-		return true
 	}
-	return false
+	if len(sc) == 0 {
+		return false, nil, nil
+	}
+	sort.Slice(sc, func(i, j int) bool { return sc[i].dist < sc[j].dist })
+
+	r := sc[0].ride
+	r.RiderCount++
+
+	// Add this passenger as a rider.
+	fareShare := geo.PoolFare(distanceMeters, r.RiderCount)
+	rider := &store.Rider{
+		RideID:      r.ID,
+		PassengerID: req.GetPassengerId(),
+		PickupLat:   req.GetPickup().GetLatitude(),
+		PickupLng:   req.GetPickup().GetLongitude(),
+		DropoffLat:  req.GetDropoff().GetLatitude(),
+		DropoffLng:  req.GetDropoff().GetLongitude(),
+		FareShare:   fareShare,
+		Status:      store.RiderPending,
+	}
+	if err := s.repo.AddRider(ctx, rider); err != nil {
+		return false, nil, err
+	}
+
+	// Recalculate fare share for all existing riders now that there's one more.
+	_ = s.repo.UpdateRiderFares(ctx, r.ID, fareShare)
+
+	if err := s.repo.Update(ctx, r); err != nil {
+		return false, nil, err
+	}
+
+	s.log.Info("passenger joined pool", "ride_id", r.ID, "passenger", req.GetPassengerId(), "rider_count", r.RiderCount)
+	s.publishPoolJoined(r, req.GetPassengerId())
+	return true, s.rideWithRiders(ctx, r), nil
 }
 
-// GetRide returns the current state of a ride.
+// ─── GetRide ──────────────────────────────────────────────────────────────
+
 func (s *Server) GetRide(ctx context.Context, req *ridev1.GetRideRequest) (*ridev1.Ride, error) {
 	r, err := s.repo.Get(ctx, req.GetId())
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "ride not found")
 		}
-		s.log.Error("get ride", "err", err)
 		return nil, status.Error(codes.Internal, "failed to look up ride")
 	}
-	return toProtoRide(r), nil
+	return s.rideWithRiders(ctx, r), nil
 }
 
-// UpdateRideStatus advances a ride through its lifecycle. On COMPLETED the
-// fare is finalized and completed_at is set.
+// ─── UpdateRideStatus ─────────────────────────────────────────────────────
+
 func (s *Server) UpdateRideStatus(ctx context.Context, req *ridev1.UpdateRideStatusRequest) (*ridev1.Ride, error) {
 	r, err := s.repo.Get(ctx, req.GetId())
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "ride not found")
 		}
-		s.log.Error("get ride", "err", err)
 		return nil, status.Error(codes.Internal, "failed to look up ride")
 	}
+
 	st := req.GetStatus()
 	if st == ridev1.RideStatus_RIDE_STATUS_UNSPECIFIED {
+		// Check if this is a per-rider status update (pool only).
+		if req.GetRiderPassengerId() != "" && r.RideType == store.RideTypePool {
+			return s.updateRiderStatus(ctx, r, req.GetRiderPassengerId(), req.GetRiderStatus())
+		}
 		return nil, status.Error(codes.InvalidArgument, "status is required")
 	}
+
 	r.Status = int(st)
 	if st == ridev1.RideStatus_COMPLETED {
-		r.Fare = 5.0 + 1.5*(r.DistanceMeters/1000.0)
+		if r.RideType == store.RideTypePool {
+			// Pool fare: total = per-rider fare × rider count.
+			perRider := geo.PoolFare(r.DistanceMeters, r.RiderCount)
+			r.Fare = perRider * float64(r.RiderCount)
+			_ = s.repo.UpdateRiderFares(ctx, r.ID, perRider)
+			// Mark all pending/on-board riders as dropped.
+			if riders, err := s.repo.GetRiders(ctx, r.ID); err == nil {
+				for _, rider := range riders {
+					if rider.Status == store.RiderPending || rider.Status == store.RiderOnBoard {
+						_ = s.repo.UpdateRiderStatus(ctx, r.ID, rider.PassengerID, store.RiderDropped)
+					}
+				}
+			}
+		} else {
+			r.Fare = geo.SoloFare(r.DistanceMeters)
+		}
 		r.CompletedAt = time.Now().Unix()
 	}
+
 	if err := s.repo.Update(ctx, r); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "ride not found")
 		}
-		s.log.Error("update ride", "err", err)
 		return nil, status.Error(codes.Internal, "failed to update ride")
 	}
 	s.publishEvent(r, st)
-	return toProtoRide(r), nil
+	return s.rideWithRiders(ctx, r), nil
 }
 
-// ListMyRides lists rides for a passenger or driver, newest first.
+// updateRiderStatus updates a specific rider's pickup/dropoff state in a pool trip.
+func (s *Server) updateRiderStatus(ctx context.Context, r *store.Ride, passengerID string, rst ridev1.RiderStatus) (*ridev1.Ride, error) {
+	newSt := int(rst)
+	if err := s.repo.UpdateRiderStatus(ctx, r.ID, passengerID, newSt); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, status.Error(codes.NotFound, "rider not found in this trip")
+		}
+		return nil, status.Error(codes.Internal, "failed to update rider")
+	}
+	s.log.Info("rider status updated", "ride_id", r.ID, "passenger", passengerID, "status", newSt)
+	return s.rideWithRiders(ctx, r), nil
+}
+
+// ─── ListMyRides ──────────────────────────────────────────────────────────
+
 func (s *Server) ListMyRides(ctx context.Context, req *ridev1.ListMyRidesRequest) (*ridev1.ListMyRidesResponse, error) {
 	limit := int(req.GetLimit())
 	if limit <= 0 {
@@ -184,18 +271,93 @@ func (s *Server) ListMyRides(ctx context.Context, req *ridev1.ListMyRidesRequest
 	}
 	rides, err := s.repo.ListByUser(ctx, req.GetUserId(), req.GetRole(), limit)
 	if err != nil {
-		s.log.Error("list rides", "err", err)
 		return nil, status.Error(codes.Internal, "failed to list rides")
 	}
 	out := make([]*ridev1.Ride, 0, len(rides))
 	for _, r := range rides {
-		out = append(out, toProtoRide(r))
+		out = append(out, s.rideWithRiders(ctx, r))
 	}
 	return &ridev1.ListMyRidesResponse{Rides: out}, nil
 }
 
-// eventMeta maps a ride status to its NATS event type and status name.
-func eventMeta(st ridev1.RideStatus) (eventType, statusName string, ok bool) {
+// ─── Matching ─────────────────────────────────────────────────────────────
+
+func (s *Server) tryMatchDriver(ctx context.Context, r *store.Ride) bool {
+	if s.locationClient == nil || s.driverClient == nil {
+		return false
+	}
+	nearby, err := s.locationClient.GetNearbyDrivers(ctx, &locationv1.GetNearbyDriversRequest{
+		Latitude: r.PickupLat, Longitude: r.PickupLng,
+		RadiusMeters: matchRadiusMeters, Limit: matchLimit,
+	})
+	if err != nil {
+		s.log.Warn("get nearby drivers", "err", err)
+		return false
+	}
+	for _, d := range nearby.GetDrivers() {
+		avail, err := s.driverClient.GetAvailability(ctx, &driverv1.GetAvailabilityRequest{Id: d.GetDriverId()})
+		if err != nil || !avail.GetIsAvailable() {
+			continue
+		}
+		r.DriverID = d.GetDriverId()
+		r.Status = int(ridev1.RideStatus_MATCHED)
+		if err := s.repo.Update(ctx, r); err != nil {
+			r.DriverID = ""
+			r.Status = int(ridev1.RideStatus_REQUESTED)
+			return false
+		}
+		s.log.Info("ride matched", "ride_id", r.ID, "driver", r.DriverID, "type", r.RideType)
+		return true
+	}
+	return false
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
+
+// rideWithRiders loads the riders list for a pool trip and builds the proto.
+func (s *Server) rideWithRiders(ctx context.Context, r *store.Ride) *ridev1.Ride {
+	proto := toProtoRide(r)
+	if r.RideType == store.RideTypePool {
+		if riders, err := s.repo.GetRiders(ctx, r.ID); err == nil {
+			for _, rider := range riders {
+				proto.Riders = append(proto.Riders, &ridev1.Rider{
+					PassengerId: rider.PassengerID,
+					Pickup:      &ridev1.GeoPoint{Latitude: rider.PickupLat, Longitude: rider.PickupLng},
+					Dropoff:     &ridev1.GeoPoint{Latitude: rider.DropoffLat, Longitude: rider.DropoffLng},
+					FareShare:   rider.FareShare,
+					Status:      ridev1.RiderStatus(rider.Status),
+				})
+			}
+		}
+	}
+	return proto
+}
+
+func toProtoRide(r *store.Ride) *ridev1.Ride {
+	rt := ridev1.RideType_SOLO
+	if r.RideType == store.RideTypePool {
+		rt = ridev1.RideType_POOL
+	}
+	return &ridev1.Ride{
+		Id:             r.ID,
+		PassengerId:    r.PassengerID,
+		DriverId:       r.DriverID,
+		Pickup:         &ridev1.GeoPoint{Latitude: r.PickupLat, Longitude: r.PickupLng, Address: r.PickupAddr},
+		Dropoff:        &ridev1.GeoPoint{Latitude: r.DropoffLat, Longitude: r.DropoffLng, Address: r.DropoffAddr},
+		Status:         ridev1.RideStatus(r.Status),
+		Fare:           r.Fare,
+		DistanceMeters: r.DistanceMeters,
+		RequestedAt:    r.RequestedAt,
+		CompletedAt:    r.CompletedAt,
+		Type:           rt,
+		MaxRiders:      int32(r.MaxRiders),
+		RiderCount:     int32(r.RiderCount),
+	}
+}
+
+// ─── NATS events ──────────────────────────────────────────────────────────
+
+func eventMeta(st ridev1.RideStatus) (evType, statusName string, ok bool) {
 	switch st {
 	case ridev1.RideStatus_REQUESTED:
 		return "requested", "REQUESTED", true
@@ -214,22 +376,20 @@ func eventMeta(st ridev1.RideStatus) (eventType, statusName string, ok bool) {
 	}
 }
 
-// publishEvent emits a ride lifecycle event on NATS. It is a no-op when the
-// NATS connection is unavailable. Matched events include DriverID and
-// completed events include the Fare.
 func (s *Server) publishEvent(r *store.Ride, st ridev1.RideStatus) {
 	if s.nc == nil {
 		return
 	}
-	eventType, statusName, ok := eventMeta(st)
+	evType, statusName, ok := eventMeta(st)
 	if !ok {
 		return
 	}
 	ev := events.RideEvent{
 		RideID:    r.ID,
-		Type:      eventType,
+		Type:      evType,
 		Status:    statusName,
 		Timestamp: events.Now(),
+		IsPool:    r.RideType == store.RideTypePool,
 	}
 	switch st {
 	case ridev1.RideStatus_MATCHED:
@@ -242,29 +402,24 @@ func (s *Server) publishEvent(r *store.Ride, st ridev1.RideStatus) {
 		ev.DriverID = r.DriverID
 		ev.PassengerID = r.PassengerID
 	}
-	data, err := json.Marshal(ev)
-	if err != nil {
-		s.log.Error("marshal ride event", "err", err)
-		return
-	}
-	subj := events.RideSubject(r.ID, eventType)
-	if err := s.nc.Publish(subj, data); err != nil {
-		s.log.Error("publish ride event", "err", err, "subject", subj)
-	}
+	data, _ := json.Marshal(ev)
+	_ = s.nc.Publish(events.RideSubject(r.ID, evType), data)
 }
 
-// toProtoRide converts a stored ride to its protobuf representation.
-func toProtoRide(r *store.Ride) *ridev1.Ride {
-	return &ridev1.Ride{
-		Id:             r.ID,
-		PassengerId:    r.PassengerID,
-		DriverId:       r.DriverID,
-		Pickup:         &ridev1.GeoPoint{Latitude: r.PickupLat, Longitude: r.PickupLng, Address: r.PickupAddr},
-		Dropoff:        &ridev1.GeoPoint{Latitude: r.DropoffLat, Longitude: r.DropoffLng, Address: r.DropoffAddr},
-		Status:         ridev1.RideStatus(r.Status),
-		Fare:           r.Fare,
-		DistanceMeters: r.DistanceMeters,
-		RequestedAt:    r.RequestedAt,
-		CompletedAt:    r.CompletedAt,
+// publishPoolJoined notifies on NATS that a new rider joined an existing pool trip.
+func (s *Server) publishPoolJoined(r *store.Ride, newPassengerID string) {
+	if s.nc == nil {
+		return
 	}
+	ev := events.RideEvent{
+		RideID:      r.ID,
+		Type:        "pool_joined",
+		Status:      "MATCHED",
+		DriverID:    r.DriverID,
+		PassengerID: newPassengerID,
+		IsPool:      true,
+		Timestamp:   events.Now(),
+	}
+	data, _ := json.Marshal(ev)
+	_ = s.nc.Publish(events.RideSubject(r.ID, "pool_joined"), data)
 }

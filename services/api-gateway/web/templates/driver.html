@@ -118,6 +118,7 @@
   };
 
   window.onRideMatched = function (rid, plat, plng, dlat, dlng) {
+    if (!cur) cur = { lat: DEF[0], lng: DEF[1] };
     if (!mPick) mPick = L.marker([plat, plng], { icon: pickIcon }).addTo(map).bindTooltip('Pickup');
     else mPick.setLatLng([plat, plng]);
     if (!mDrop) mDrop = L.marker([dlat, dlng], { icon: dropIcon }).addTo(map).bindTooltip('Destination');
@@ -136,6 +137,9 @@
     if (s === 'COMPLETED' || s === 'CANCELLED') {
       stopDrivingLoop();
       hint.textContent = s === 'COMPLETED' ? 'Trip complete — ready for next ride' : 'Trip cancelled';
+      if (mPick) { map.removeLayer(mPick); mPick = null; }
+      if (mDrop) { map.removeLayer(mDrop); mDrop = null; }
+      target = null;
     }
   };
 })();

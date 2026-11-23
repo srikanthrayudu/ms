@@ -9,6 +9,12 @@ Datastar endpoints return `text/event-stream` responses carrying
 `datastar-patch-elements` and `datastar-patch-signals` events.
 Plain endpoints (e.g. `POST /api/driver/location`) return `204 No Content`.
 
+### `GET /metrics`
+
+Prometheus metrics for the api-gateway (port `8080`). Each backend service also exposes
+`/metrics` on its own dedicated port (9090–9095). Scraped by the Prometheus instance
+started via `task compose:obs:up`.
+
 ---
 
 ## Auth
@@ -87,6 +93,15 @@ Advance ride to `ONGOING` (passenger picked up). Driver only.
 
 Advance ride to `COMPLETED`. Triggers fare calculation and automatic payment charge.
 Driver only.
+
+### `POST /api/rides/{id}/cancel`
+
+Cancel a ride (sets status to `CANCELLED`). Available to both passenger and driver while
+the ride is in `REQUESTED`, `MATCHED`, or `ON_THE_WAY` state.
+
+Triggers the **Saga compensation chain** via NATS:
+- `payment-service` marks any existing charge as `REFUNDED`
+- `notification-service` notifies both passenger and driver
 
 ---
 

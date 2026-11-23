@@ -42,3 +42,30 @@ func TestHaversine_Symmetry(t *testing.T) {
 		t.Errorf("haversine should be symmetric: %f vs %f", a, b)
 	}
 }
+
+func TestSoloFare(t *testing.T) {
+	// 10km distance: 3.0 + 1.5 * 10 = 18.0
+	fare := geo.SoloFare(10000)
+	if math.Abs(fare-18.0) > 0.001 {
+		t.Errorf("expected 18.0, got %f", fare)
+	}
+}
+
+func TestPoolFare(t *testing.T) {
+	// 1 rider: same as solo (18.0)
+	f1 := geo.PoolFare(10000, 1)
+	if math.Abs(f1-18.0) > 0.001 {
+		t.Errorf("expected 18.0 for 1 rider, got %f", f1)
+	}
+
+	// 2 riders: (18.0 / 2) + 0.30 * 10 * 1 = 9.0 + 3.0 = 12.0
+	f2 := geo.PoolFare(10000, 2)
+	if math.Abs(f2-12.0) > 0.001 {
+		t.Errorf("expected 12.0 for 2 riders, got %f", f2)
+	}
+
+	// Pool fare should be strictly less than solo fare for each passenger
+	if f2 >= f1 {
+		t.Errorf("pool fare (%f) should be less than solo fare (%f)", f2, f1)
+	}
+}

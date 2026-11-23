@@ -55,9 +55,10 @@ func (a *App) apiDriverAvailability(w http.ResponseWriter, r *http.Request) {
 	})
 	sse := datastar.NewSSE(w, r)
 	if err != nil {
-		_ = sse.PatchElements(fmt.Sprintf(`<div id="form-error" class="error-msg">Something went wrong. Please try again.</div>`))
+		_ = sse.PatchElements(`<div id="driver-status" class="status error">Something went wrong. Please try again.</div>`)
 		return
 	}
+	_ = sse.PatchElements(`<div id="driver-status"></div>`)
 	if s.Online {
 		_ = sse.ExecuteScript("window.startDrivingLoop()")
 	} else {
@@ -177,15 +178,24 @@ func renderDriverRidePanel(ride *ridev1.Ride) string {
 		controls = `<span class="muted">Trip was cancelled.</span>`
 	}
 
+	typeBadge := ""
+	if ride.GetType() == ridev1.RideType_POOL {
+		rc := ride.GetRiderCount()
+		if rc <= 0 {
+			rc = 1
+		}
+		typeBadge = fmt.Sprintf(` <span class="badge" style="background:#8b5cf6;color:#fff;">Pool (%d/%d)</span>`, rc, ride.GetMaxRiders())
+	}
+
 	return fmt.Sprintf(`<div id="current-ride" class="ride-card">
 		<div class="ride-card-header">
 			<h3>Active trip</h3>
-			<span class="badge %s">%s</span>
+			<div><span class="badge %s">%s</span>%s</div>
 		</div>
 		<div class="coords"><span class="dot dot-green"></span> %.5f, %.5f</div>
 		<div class="coords"><span class="dot dot-indigo"></span> %.5f, %.5f</div>
 		<div class="controls">%s</div>
-	</div>`, cls, label,
+	</div>`, cls, label, typeBadge,
 		ride.GetPickup().GetLatitude(), ride.GetPickup().GetLongitude(),
 		ride.GetDropoff().GetLatitude(), ride.GetDropoff().GetLongitude(),
 		controls)

@@ -171,6 +171,7 @@ files). Important ones:
 |-----------------------|----------------------------------|----------------------|
 | `HTTP_ADDR`           | `:8080`                          | api-gateway          |
 | `GRPC_ADDR`           | `:5005x`                         | each backend service |
+| `METRICS_ADDR`        | `:909x`                          | each backend service |
 | `DB_PATH`             | `data/<service>.db`              | each backend service |
 | `NATS_URL`            | `nats://127.0.0.1:4222`          | ride, location, gateway |
 | `JWT_SECRET`          | `super-secret-change-me`         | user-service, gateway |
@@ -216,3 +217,43 @@ each candidate is available via `driver-service.GetAvailability`; it publishes a
 event on every transition. `location-service` broadcasts every GPS fix. The gateway
 subscribes to these subjects and streams Datastar patches (DOM + signals) and
 imperative map updates to the browser over SSE.
+
+---
+
+## Observability
+
+### Prometheus metrics
+
+Every service exposes a `/metrics` endpoint (Prometheus scrape format):
+
+| Service              | Metrics port |
+|----------------------|-------------|
+| api-gateway          | 8080        |
+| user-service         | 9090        |
+| driver-service       | 9091        |
+| location-service     | 9092        |
+| ride-service         | 9093        |
+| payment-service      | 9094        |
+| notification-service | 9095        |
+
+The observability stack (`task compose:obs:up`) starts Prometheus + Grafana + Jaeger
+pre-configured to scrape all services.
+
+### Distributed tracing (OpenTelemetry)
+
+All gRPC servers and clients use `otelgrpc` stats handlers for W3C TraceContext
+propagation. Set `OTEL_EXPORTER_OTLP_ENDPOINT` (or use Jaeger at `:4317`) to collect
+traces end-to-end across all services.
+
+---
+
+## Saga pattern — Ride cancellation
+
+When a ride is cancelled (`POST /api/rides/{id}/cancel`):
+
+1. **ride-service** sets status → `CANCELLED` and emits `rides.<id>.cancelled` on NATS.
+2. **payment-service** subscribes → marks any existing charge as `REFUNDED` (compensation step).
+3. **notification-service** subscribes → notifies both the passenger and the driver.
+
+This is the [Saga pattern](https://microservices.io/patterns/data/saga.html) — a chain
+of local transactions coordinated through events, with no distributed locking required.

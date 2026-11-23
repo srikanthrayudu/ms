@@ -196,6 +196,15 @@ Every service now exposes a `/metrics` endpoint:
 
 Configure via `METRICS_ADDR` env var. Prometheus scrape config updated at `deploy/observability/prometheus.yml`.
 
+**Step 4 — Carpooling / Pool Ride Matching** ✅
+
+Implemented dynamic ride pooling (shared rides) with route detours and fare splitting:
+1. `proto/ride/v1/ride.proto`: added `RideType` (SOLO vs POOL), `RiderStatus`, `Rider` messages, and pool attributes.
+2. `ride-service`: dynamic pool matching in `tryJoinPool` matching nearby open pool trips within radius; stores `riders` table.
+3. `shared/geo`: added `SoloFare` and `PoolFare` with detour surcharges and per-passenger fare discounting.
+4. `api-gateway`: added pool ride selector in passenger dashboard, pool badges in active ride tracking, and driver dashboard pool ride indicators.
+5. `events`: broadcast `pool_joined` events over NATS.
+
 ---
 
 Upgrade from Core NATS to JetStream so events survive NATS restarts:

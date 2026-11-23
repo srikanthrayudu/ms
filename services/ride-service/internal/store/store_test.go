@@ -120,3 +120,49 @@ func TestListByUser_Driver(t *testing.T) {
 		t.Errorf("unexpected rides: %+v", rides)
 	}
 }
+
+func TestPoolRiders(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+
+	r := sampleRide("r_pool", "p_1")
+	r.RideType = store.RideTypePool
+	r.MaxRiders = 3
+	r.RiderCount = 1
+	if err := s.Create(ctx, r); err != nil {
+		t.Fatalf("Create pool ride: %v", err)
+	}
+
+	// Add rider
+	rider1 := &store.Rider{
+		RideID: "r_pool", PassengerID: "p_1",
+		PickupLat: 40.71, PickupLng: -74.00,
+		DropoffLat: 40.72, DropoffLng: -74.01,
+		FareShare: 15.0, Status: store.RiderPending,
+	}
+	if err := s.AddRider(ctx, rider1); err != nil {
+		t.Fatalf("AddRider: %v", err)
+	}
+
+	riders, err := s.GetRiders(ctx, "r_pool")
+	if err != nil {
+		t.Fatalf("GetRiders: %v", err)
+	}
+	if len(riders) != 1 || riders[0].PassengerID != "p_1" {
+		t.Fatalf("expected 1 rider with p_1, got %+v", riders)
+	}
+
+	// Update rider status
+	if err := s.UpdateRiderStatus(ctx, "r_pool", "p_1", store.RiderOnBoard); err != nil {
+		t.Fatalf("UpdateRiderStatus: %v", err)
+	}
+
+	// Find open pool rides
+	open, err := s.FindOpenPoolRides(ctx, 40.71, -74.00, 2000, 5)
+	if err != nil {
+		t.Fatalf("FindOpenPoolRides: %v", err)
+	}
+	if len(open) != 1 || open[0].ID != "r_pool" {
+		t.Fatalf("expected 1 open pool ride, got %+v", open)
+	}
+}

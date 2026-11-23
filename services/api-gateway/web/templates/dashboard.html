@@ -1,5 +1,5 @@
 {{define "content"}}
-<div data-signals="{pickupLat:0,pickupLng:0,dropoffLat:0,dropoffLng:0}">
+<div data-signals="{pickupLat:0,pickupLng:0,dropoffLat:0,dropoffLng:0,pool:false}">
   <input type="hidden" data-bind="pickupLat">
   <input type="hidden" data-bind="pickupLng">
   <input type="hidden" data-bind="dropoffLat">
@@ -39,6 +39,16 @@
         <span class="loc-value" data-text="dropoffLat ? dropoffLat.toFixed(4)+', '+dropoffLng.toFixed(4) : 'Not set'"></span>
       </div>
     </div>
+  </div>
+
+  <div style="margin-bottom:16px;">
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;">
+      <input type="checkbox" data-bind="pool" style="width:16px;height:16px;cursor:pointer;">
+      <div>
+        <div style="font-weight:600;font-size:14px;">Carpool / Pool ride</div>
+        <div class="muted" style="font-size:12px;">Share with nearby riders heading the same way for lower fare</div>
+      </div>
+    </label>
   </div>
 
   <button class="btn primary lg w-full" data-on:click="@post('/api/rides')">Request ride →</button>

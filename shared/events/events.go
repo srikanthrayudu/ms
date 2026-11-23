@@ -45,6 +45,7 @@ type RideEvent struct {
 	Status      string  `json:"status"`
 	DriverID    string  `json:"driver_id,omitempty"`
 	PassengerID string  `json:"passenger_id,omitempty"`
+	IsPool      bool    `json:"is_pool,omitempty"`
 	Latitude    float64 `json:"latitude,omitempty"`
 	Longitude   float64 `json:"longitude,omitempty"`
 	Heading     float64 `json:"heading,omitempty"`

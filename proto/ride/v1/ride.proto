@@ -4,53 +4,79 @@ package ride.v1;
 
 option go_package = "ms/proto/gen/ride/v1;ridev1";
 
-// RideService owns the ride lifecycle: request -> match -> on-the-way ->
-// ongoing -> completed. Matching delegates nearby-driver queries to the
-// LocationService and publishes lifecycle events on NATS.
+// RideService owns the ride lifecycle.
 service RideService {
-  // RequestRide creates a ride, matches a nearby driver, and returns the ride.
-  rpc RequestRide(RequestRideRequest) returns (Ride);
-  // GetRide returns the current state of a ride.
-  rpc GetRide(GetRideRequest) returns (Ride);
-  // UpdateRideStatus advances a ride through its lifecycle.
+  rpc RequestRide(RequestRideRequest)         returns (Ride);
+  rpc GetRide(GetRideRequest)                 returns (Ride);
   rpc UpdateRideStatus(UpdateRideStatusRequest) returns (Ride);
-  // ListMyRides lists rides for a passenger or driver.
-  rpc ListMyRides(ListMyRidesRequest) returns (ListMyRidesResponse);
+  rpc ListMyRides(ListMyRidesRequest)         returns (ListMyRidesResponse);
 }
+
+// ─── Enums ────────────────────────────────────────────────────────────────
 
 enum RideStatus {
   RIDE_STATUS_UNSPECIFIED = 0;
-  REQUESTED = 1;
-  MATCHED = 2;
+  REQUESTED  = 1;
+  MATCHED    = 2;
   ON_THE_WAY = 3;
-  ONGOING = 4;
-  COMPLETED = 5;
-  CANCELLED = 6;
+  ONGOING    = 4;
+  COMPLETED  = 5;
+  CANCELLED  = 6;
 }
 
+enum RideType {
+  SOLO = 0;  // private ride, single passenger
+  POOL = 1;  // shared ride, up to max_riders passengers
+}
+
+// RiderStatus tracks each pool passenger independently so the driver can
+// mark pickups and dropoffs without ending the whole trip.
+enum RiderStatus {
+  RIDER_PENDING   = 0; // waiting to be picked up
+  RIDER_ON_BOARD  = 1; // in the car
+  RIDER_DROPPED   = 2; // reached their destination
+  RIDER_CANCELLED = 3; // cancelled before pickup
+}
+
+// ─── Messages ─────────────────────────────────────────────────────────────
+
 message GeoPoint {
-  double latitude = 1;
+  double latitude  = 1;
   double longitude = 2;
-  string address = 3;
+  string address   = 3;
+}
+
+// Rider represents one passenger in a pool trip.
+message Rider {
+  string       passenger_id = 1;
+  GeoPoint     pickup       = 2;
+  GeoPoint     dropoff      = 3;
+  double       fare_share   = 4; // this passenger's portion of the total fare
+  RiderStatus  status       = 5;
 }
 
 message RequestRideRequest {
-  string passenger_id = 1;
-  GeoPoint pickup = 2;
-  GeoPoint dropoff = 3;
+  string   passenger_id = 1;
+  GeoPoint pickup       = 2;
+  GeoPoint dropoff      = 3;
+  RideType type         = 4; // SOLO (default) or POOL
 }
 
 message Ride {
-  string id = 1;
-  string passenger_id = 2;
-  string driver_id = 3;
-  GeoPoint pickup = 4;
-  GeoPoint dropoff = 5;
-  RideStatus status = 6;
-  double fare = 7;
-  double distance_meters = 8;
-  int64 requested_at = 9;  // unix seconds
-  int64 completed_at = 10; // unix seconds
+  string            id              = 1;
+  string            passenger_id    = 2; // primary passenger (or first to join pool)
+  string            driver_id       = 3;
+  GeoPoint          pickup          = 4;
+  GeoPoint          dropoff         = 5;
+  RideStatus        status          = 6;
+  double            fare            = 7; // total fare for SOLO; per-rider breakdown in riders for POOL
+  double            distance_meters = 8;
+  int64             requested_at    = 9;
+  int64             completed_at    = 10;
+  RideType          type            = 11;
+  repeated Rider    riders          = 12; // populated for POOL rides
+  int32             max_riders      = 13; // max pool capacity (default 3)
+  int32             rider_count     = 14; // current number of riders
 }
 
 message GetRideRequest {
@@ -58,15 +84,18 @@ message GetRideRequest {
 }
 
 message UpdateRideStatusRequest {
-  string id = 1;
-  RideStatus status = 2;
-  string actor_id = 3; // user performing the update
+  string     id       = 1;
+  RideStatus status   = 2;
+  string     actor_id = 3;
+  // For pool rides: when a driver picks up / drops off a specific passenger.
+  string     rider_passenger_id = 4; // optional: target a specific rider's status
+  RiderStatus rider_status      = 5; // only used when rider_passenger_id is set
 }
 
 message ListMyRidesRequest {
   string user_id = 1;
-  string role = 2; // "passenger" or "driver"
-  int32 limit = 3;
+  string role    = 2; // "passenger" or "driver"
+  int32  limit   = 3;
 }
 
 message ListMyRidesResponse {

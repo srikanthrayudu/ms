@@ -82,6 +82,106 @@ func (RideStatus) EnumDescriptor() ([]byte, []int) {
 	return file_ride_v1_ride_proto_rawDescGZIP(), []int{0}
 }
 
+type RideType int32
+
+const (
+	RideType_SOLO RideType = 0 // private ride, single passenger
+	RideType_POOL RideType = 1 // shared ride, up to max_riders passengers
+)
+
+// Enum value maps for RideType.
+var (
+	RideType_name = map[int32]string{
+		0: "SOLO",
+		1: "POOL",
+	}
+	RideType_value = map[string]int32{
+		"SOLO": 0,
+		"POOL": 1,
+	}
+)
+
+func (x RideType) Enum() *RideType {
+	p := new(RideType)
+	*p = x
+	return p
+}
+
+func (x RideType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RideType) Descriptor() protoreflect.EnumDescriptor {
+	return file_ride_v1_ride_proto_enumTypes[1].Descriptor()
+}
+
+func (RideType) Type() protoreflect.EnumType {
+	return &file_ride_v1_ride_proto_enumTypes[1]
+}
+
+func (x RideType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RideType.Descriptor instead.
+func (RideType) EnumDescriptor() ([]byte, []int) {
+	return file_ride_v1_ride_proto_rawDescGZIP(), []int{1}
+}
+
+// RiderStatus tracks each pool passenger independently so the driver can
+// mark pickups and dropoffs without ending the whole trip.
+type RiderStatus int32
+
+const (
+	RiderStatus_RIDER_PENDING   RiderStatus = 0 // waiting to be picked up
+	RiderStatus_RIDER_ON_BOARD  RiderStatus = 1 // in the car
+	RiderStatus_RIDER_DROPPED   RiderStatus = 2 // reached their destination
+	RiderStatus_RIDER_CANCELLED RiderStatus = 3 // cancelled before pickup
+)
+
+// Enum value maps for RiderStatus.
+var (
+	RiderStatus_name = map[int32]string{
+		0: "RIDER_PENDING",
+		1: "RIDER_ON_BOARD",
+		2: "RIDER_DROPPED",
+		3: "RIDER_CANCELLED",
+	}
+	RiderStatus_value = map[string]int32{
+		"RIDER_PENDING":   0,
+		"RIDER_ON_BOARD":  1,
+		"RIDER_DROPPED":   2,
+		"RIDER_CANCELLED": 3,
+	}
+)
+
+func (x RiderStatus) Enum() *RiderStatus {
+	p := new(RiderStatus)
+	*p = x
+	return p
+}
+
+func (x RiderStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RiderStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_ride_v1_ride_proto_enumTypes[2].Descriptor()
+}
+
+func (RiderStatus) Type() protoreflect.EnumType {
+	return &file_ride_v1_ride_proto_enumTypes[2]
+}
+
+func (x RiderStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RiderStatus.Descriptor instead.
+func (RiderStatus) EnumDescriptor() ([]byte, []int) {
+	return file_ride_v1_ride_proto_rawDescGZIP(), []int{2}
+}
+
 type GeoPoint struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Latitude      float64                `protobuf:"fixed64,1,opt,name=latitude,proto3" json:"latitude,omitempty"`
@@ -142,18 +242,96 @@ func (x *GeoPoint) GetAddress() string {
 	return ""
 }
 
+// Rider represents one passenger in a pool trip.
+type Rider struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PassengerId   string                 `protobuf:"bytes,1,opt,name=passenger_id,json=passengerId,proto3" json:"passenger_id,omitempty"`
+	Pickup        *GeoPoint              `protobuf:"bytes,2,opt,name=pickup,proto3" json:"pickup,omitempty"`
+	Dropoff       *GeoPoint              `protobuf:"bytes,3,opt,name=dropoff,proto3" json:"dropoff,omitempty"`
+	FareShare     float64                `protobuf:"fixed64,4,opt,name=fare_share,json=fareShare,proto3" json:"fare_share,omitempty"` // this passenger's portion of the total fare
+	Status        RiderStatus            `protobuf:"varint,5,opt,name=status,proto3,enum=ride.v1.RiderStatus" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Rider) Reset() {
+	*x = Rider{}
+	mi := &file_ride_v1_ride_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Rider) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Rider) ProtoMessage() {}
+
+func (x *Rider) ProtoReflect() protoreflect.Message {
+	mi := &file_ride_v1_ride_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Rider.ProtoReflect.Descriptor instead.
+func (*Rider) Descriptor() ([]byte, []int) {
+	return file_ride_v1_ride_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Rider) GetPassengerId() string {
+	if x != nil {
+		return x.PassengerId
+	}
+	return ""
+}
+
+func (x *Rider) GetPickup() *GeoPoint {
+	if x != nil {
+		return x.Pickup
+	}
+	return nil
+}
+
+func (x *Rider) GetDropoff() *GeoPoint {
+	if x != nil {
+		return x.Dropoff
+	}
+	return nil
+}
+
+func (x *Rider) GetFareShare() float64 {
+	if x != nil {
+		return x.FareShare
+	}
+	return 0
+}
+
+func (x *Rider) GetStatus() RiderStatus {
+	if x != nil {
+		return x.Status
+	}
+	return RiderStatus_RIDER_PENDING
+}
+
 type RequestRideRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PassengerId   string                 `protobuf:"bytes,1,opt,name=passenger_id,json=passengerId,proto3" json:"passenger_id,omitempty"`
 	Pickup        *GeoPoint              `protobuf:"bytes,2,opt,name=pickup,proto3" json:"pickup,omitempty"`
 	Dropoff       *GeoPoint              `protobuf:"bytes,3,opt,name=dropoff,proto3" json:"dropoff,omitempty"`
+	Type          RideType               `protobuf:"varint,4,opt,name=type,proto3,enum=ride.v1.RideType" json:"type,omitempty"` // SOLO (default) or POOL
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RequestRideRequest) Reset() {
 	*x = RequestRideRequest{}
-	mi := &file_ride_v1_ride_proto_msgTypes[1]
+	mi := &file_ride_v1_ride_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -165,7 +343,7 @@ func (x *RequestRideRequest) String() string {
 func (*RequestRideRequest) ProtoMessage() {}
 
 func (x *RequestRideRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ride_v1_ride_proto_msgTypes[1]
+	mi := &file_ride_v1_ride_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -178,7 +356,7 @@ func (x *RequestRideRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestRideRequest.ProtoReflect.Descriptor instead.
 func (*RequestRideRequest) Descriptor() ([]byte, []int) {
-	return file_ride_v1_ride_proto_rawDescGZIP(), []int{1}
+	return file_ride_v1_ride_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *RequestRideRequest) GetPassengerId() string {
@@ -202,25 +380,36 @@ func (x *RequestRideRequest) GetDropoff() *GeoPoint {
 	return nil
 }
 
+func (x *RequestRideRequest) GetType() RideType {
+	if x != nil {
+		return x.Type
+	}
+	return RideType_SOLO
+}
+
 type Ride struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	PassengerId    string                 `protobuf:"bytes,2,opt,name=passenger_id,json=passengerId,proto3" json:"passenger_id,omitempty"`
+	PassengerId    string                 `protobuf:"bytes,2,opt,name=passenger_id,json=passengerId,proto3" json:"passenger_id,omitempty"` // primary passenger (or first to join pool)
 	DriverId       string                 `protobuf:"bytes,3,opt,name=driver_id,json=driverId,proto3" json:"driver_id,omitempty"`
 	Pickup         *GeoPoint              `protobuf:"bytes,4,opt,name=pickup,proto3" json:"pickup,omitempty"`
 	Dropoff        *GeoPoint              `protobuf:"bytes,5,opt,name=dropoff,proto3" json:"dropoff,omitempty"`
 	Status         RideStatus             `protobuf:"varint,6,opt,name=status,proto3,enum=ride.v1.RideStatus" json:"status,omitempty"`
-	Fare           float64                `protobuf:"fixed64,7,opt,name=fare,proto3" json:"fare,omitempty"`
+	Fare           float64                `protobuf:"fixed64,7,opt,name=fare,proto3" json:"fare,omitempty"` // total fare for SOLO; per-rider breakdown in riders for POOL
 	DistanceMeters float64                `protobuf:"fixed64,8,opt,name=distance_meters,json=distanceMeters,proto3" json:"distance_meters,omitempty"`
-	RequestedAt    int64                  `protobuf:"varint,9,opt,name=requested_at,json=requestedAt,proto3" json:"requested_at,omitempty"`  // unix seconds
-	CompletedAt    int64                  `protobuf:"varint,10,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"` // unix seconds
+	RequestedAt    int64                  `protobuf:"varint,9,opt,name=requested_at,json=requestedAt,proto3" json:"requested_at,omitempty"`
+	CompletedAt    int64                  `protobuf:"varint,10,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
+	Type           RideType               `protobuf:"varint,11,opt,name=type,proto3,enum=ride.v1.RideType" json:"type,omitempty"`
+	Riders         []*Rider               `protobuf:"bytes,12,rep,name=riders,proto3" json:"riders,omitempty"`                            // populated for POOL rides
+	MaxRiders      int32                  `protobuf:"varint,13,opt,name=max_riders,json=maxRiders,proto3" json:"max_riders,omitempty"`    // max pool capacity (default 3)
+	RiderCount     int32                  `protobuf:"varint,14,opt,name=rider_count,json=riderCount,proto3" json:"rider_count,omitempty"` // current number of riders
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Ride) Reset() {
 	*x = Ride{}
-	mi := &file_ride_v1_ride_proto_msgTypes[2]
+	mi := &file_ride_v1_ride_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -232,7 +421,7 @@ func (x *Ride) String() string {
 func (*Ride) ProtoMessage() {}
 
 func (x *Ride) ProtoReflect() protoreflect.Message {
-	mi := &file_ride_v1_ride_proto_msgTypes[2]
+	mi := &file_ride_v1_ride_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -245,7 +434,7 @@ func (x *Ride) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ride.ProtoReflect.Descriptor instead.
 func (*Ride) Descriptor() ([]byte, []int) {
-	return file_ride_v1_ride_proto_rawDescGZIP(), []int{2}
+	return file_ride_v1_ride_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Ride) GetId() string {
@@ -318,6 +507,34 @@ func (x *Ride) GetCompletedAt() int64 {
 	return 0
 }
 
+func (x *Ride) GetType() RideType {
+	if x != nil {
+		return x.Type
+	}
+	return RideType_SOLO
+}
+
+func (x *Ride) GetRiders() []*Rider {
+	if x != nil {
+		return x.Riders
+	}
+	return nil
+}
+
+func (x *Ride) GetMaxRiders() int32 {
+	if x != nil {
+		return x.MaxRiders
+	}
+	return 0
+}
+
+func (x *Ride) GetRiderCount() int32 {
+	if x != nil {
+		return x.RiderCount
+	}
+	return 0
+}
+
 type GetRideRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -327,7 +544,7 @@ type GetRideRequest struct {
 
 func (x *GetRideRequest) Reset() {
 	*x = GetRideRequest{}
-	mi := &file_ride_v1_ride_proto_msgTypes[3]
+	mi := &file_ride_v1_ride_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -339,7 +556,7 @@ func (x *GetRideRequest) String() string {
 func (*GetRideRequest) ProtoMessage() {}
 
 func (x *GetRideRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ride_v1_ride_proto_msgTypes[3]
+	mi := &file_ride_v1_ride_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -352,7 +569,7 @@ func (x *GetRideRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRideRequest.ProtoReflect.Descriptor instead.
 func (*GetRideRequest) Descriptor() ([]byte, []int) {
-	return file_ride_v1_ride_proto_rawDescGZIP(), []int{3}
+	return file_ride_v1_ride_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetRideRequest) GetId() string {
@@ -363,17 +580,20 @@ func (x *GetRideRequest) GetId() string {
 }
 
 type UpdateRideStatusRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Status        RideStatus             `protobuf:"varint,2,opt,name=status,proto3,enum=ride.v1.RideStatus" json:"status,omitempty"`
-	ActorId       string                 `protobuf:"bytes,3,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"` // user performing the update
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Id      string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Status  RideStatus             `protobuf:"varint,2,opt,name=status,proto3,enum=ride.v1.RideStatus" json:"status,omitempty"`
+	ActorId string                 `protobuf:"bytes,3,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	// For pool rides: when a driver picks up / drops off a specific passenger.
+	RiderPassengerId string      `protobuf:"bytes,4,opt,name=rider_passenger_id,json=riderPassengerId,proto3" json:"rider_passenger_id,omitempty"`          // optional: target a specific rider's status
+	RiderStatus      RiderStatus `protobuf:"varint,5,opt,name=rider_status,json=riderStatus,proto3,enum=ride.v1.RiderStatus" json:"rider_status,omitempty"` // only used when rider_passenger_id is set
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *UpdateRideStatusRequest) Reset() {
 	*x = UpdateRideStatusRequest{}
-	mi := &file_ride_v1_ride_proto_msgTypes[4]
+	mi := &file_ride_v1_ride_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -385,7 +605,7 @@ func (x *UpdateRideStatusRequest) String() string {
 func (*UpdateRideStatusRequest) ProtoMessage() {}
 
 func (x *UpdateRideStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ride_v1_ride_proto_msgTypes[4]
+	mi := &file_ride_v1_ride_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -398,7 +618,7 @@ func (x *UpdateRideStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRideStatusRequest.ProtoReflect.Descriptor instead.
 func (*UpdateRideStatusRequest) Descriptor() ([]byte, []int) {
-	return file_ride_v1_ride_proto_rawDescGZIP(), []int{4}
+	return file_ride_v1_ride_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *UpdateRideStatusRequest) GetId() string {
@@ -422,6 +642,20 @@ func (x *UpdateRideStatusRequest) GetActorId() string {
 	return ""
 }
 
+func (x *UpdateRideStatusRequest) GetRiderPassengerId() string {
+	if x != nil {
+		return x.RiderPassengerId
+	}
+	return ""
+}
+
+func (x *UpdateRideStatusRequest) GetRiderStatus() RiderStatus {
+	if x != nil {
+		return x.RiderStatus
+	}
+	return RiderStatus_RIDER_PENDING
+}
+
 type ListMyRidesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -433,7 +667,7 @@ type ListMyRidesRequest struct {
 
 func (x *ListMyRidesRequest) Reset() {
 	*x = ListMyRidesRequest{}
-	mi := &file_ride_v1_ride_proto_msgTypes[5]
+	mi := &file_ride_v1_ride_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -445,7 +679,7 @@ func (x *ListMyRidesRequest) String() string {
 func (*ListMyRidesRequest) ProtoMessage() {}
 
 func (x *ListMyRidesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ride_v1_ride_proto_msgTypes[5]
+	mi := &file_ride_v1_ride_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -458,7 +692,7 @@ func (x *ListMyRidesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMyRidesRequest.ProtoReflect.Descriptor instead.
 func (*ListMyRidesRequest) Descriptor() ([]byte, []int) {
-	return file_ride_v1_ride_proto_rawDescGZIP(), []int{5}
+	return file_ride_v1_ride_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ListMyRidesRequest) GetUserId() string {
@@ -491,7 +725,7 @@ type ListMyRidesResponse struct {
 
 func (x *ListMyRidesResponse) Reset() {
 	*x = ListMyRidesResponse{}
-	mi := &file_ride_v1_ride_proto_msgTypes[6]
+	mi := &file_ride_v1_ride_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -503,7 +737,7 @@ func (x *ListMyRidesResponse) String() string {
 func (*ListMyRidesResponse) ProtoMessage() {}
 
 func (x *ListMyRidesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ride_v1_ride_proto_msgTypes[6]
+	mi := &file_ride_v1_ride_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -516,7 +750,7 @@ func (x *ListMyRidesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMyRidesResponse.ProtoReflect.Descriptor instead.
 func (*ListMyRidesResponse) Descriptor() ([]byte, []int) {
-	return file_ride_v1_ride_proto_rawDescGZIP(), []int{6}
+	return file_ride_v1_ride_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListMyRidesResponse) GetRides() []*Ride {
@@ -534,11 +768,19 @@ const file_ride_v1_ride_proto_rawDesc = "" +
 	"\bGeoPoint\x12\x1a\n" +
 	"\blatitude\x18\x01 \x01(\x01R\blatitude\x12\x1c\n" +
 	"\tlongitude\x18\x02 \x01(\x01R\tlongitude\x12\x18\n" +
-	"\aaddress\x18\x03 \x01(\tR\aaddress\"\x8f\x01\n" +
+	"\aaddress\x18\x03 \x01(\tR\aaddress\"\xcf\x01\n" +
+	"\x05Rider\x12!\n" +
+	"\fpassenger_id\x18\x01 \x01(\tR\vpassengerId\x12)\n" +
+	"\x06pickup\x18\x02 \x01(\v2\x11.ride.v1.GeoPointR\x06pickup\x12+\n" +
+	"\adropoff\x18\x03 \x01(\v2\x11.ride.v1.GeoPointR\adropoff\x12\x1d\n" +
+	"\n" +
+	"fare_share\x18\x04 \x01(\x01R\tfareShare\x12,\n" +
+	"\x06status\x18\x05 \x01(\x0e2\x14.ride.v1.RiderStatusR\x06status\"\xb6\x01\n" +
 	"\x12RequestRideRequest\x12!\n" +
 	"\fpassenger_id\x18\x01 \x01(\tR\vpassengerId\x12)\n" +
 	"\x06pickup\x18\x02 \x01(\v2\x11.ride.v1.GeoPointR\x06pickup\x12+\n" +
-	"\adropoff\x18\x03 \x01(\v2\x11.ride.v1.GeoPointR\adropoff\"\xde\x02\n" +
+	"\adropoff\x18\x03 \x01(\v2\x11.ride.v1.GeoPointR\adropoff\x12%\n" +
+	"\x04type\x18\x04 \x01(\x0e2\x11.ride.v1.RideTypeR\x04type\"\xed\x03\n" +
 	"\x04Ride\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\fpassenger_id\x18\x02 \x01(\tR\vpassengerId\x12\x1b\n" +
@@ -550,13 +792,21 @@ const file_ride_v1_ride_proto_rawDesc = "" +
 	"\x0fdistance_meters\x18\b \x01(\x01R\x0edistanceMeters\x12!\n" +
 	"\frequested_at\x18\t \x01(\x03R\vrequestedAt\x12!\n" +
 	"\fcompleted_at\x18\n" +
-	" \x01(\x03R\vcompletedAt\" \n" +
+	" \x01(\x03R\vcompletedAt\x12%\n" +
+	"\x04type\x18\v \x01(\x0e2\x11.ride.v1.RideTypeR\x04type\x12&\n" +
+	"\x06riders\x18\f \x03(\v2\x0e.ride.v1.RiderR\x06riders\x12\x1d\n" +
+	"\n" +
+	"max_riders\x18\r \x01(\x05R\tmaxRiders\x12\x1f\n" +
+	"\vrider_count\x18\x0e \x01(\x05R\n" +
+	"riderCount\" \n" +
 	"\x0eGetRideRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"q\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\xd8\x01\n" +
 	"\x17UpdateRideStatusRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12+\n" +
 	"\x06status\x18\x02 \x01(\x0e2\x13.ride.v1.RideStatusR\x06status\x12\x19\n" +
-	"\bactor_id\x18\x03 \x01(\tR\aactorId\"W\n" +
+	"\bactor_id\x18\x03 \x01(\tR\aactorId\x12,\n" +
+	"\x12rider_passenger_id\x18\x04 \x01(\tR\x10riderPassengerId\x127\n" +
+	"\frider_status\x18\x05 \x01(\x0e2\x14.ride.v1.RiderStatusR\vriderStatus\"W\n" +
 	"\x12ListMyRidesRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
 	"\x04role\x18\x02 \x01(\tR\x04role\x12\x14\n" +
@@ -572,7 +822,15 @@ const file_ride_v1_ride_proto_rawDesc = "" +
 	"ON_THE_WAY\x10\x03\x12\v\n" +
 	"\aONGOING\x10\x04\x12\r\n" +
 	"\tCOMPLETED\x10\x05\x12\r\n" +
-	"\tCANCELLED\x10\x062\x8a\x02\n" +
+	"\tCANCELLED\x10\x06*\x1e\n" +
+	"\bRideType\x12\b\n" +
+	"\x04SOLO\x10\x00\x12\b\n" +
+	"\x04POOL\x10\x01*\\\n" +
+	"\vRiderStatus\x12\x11\n" +
+	"\rRIDER_PENDING\x10\x00\x12\x12\n" +
+	"\x0eRIDER_ON_BOARD\x10\x01\x12\x11\n" +
+	"\rRIDER_DROPPED\x10\x02\x12\x13\n" +
+	"\x0fRIDER_CANCELLED\x10\x032\x8a\x02\n" +
 	"\vRideService\x129\n" +
 	"\vRequestRide\x12\x1b.ride.v1.RequestRideRequest\x1a\r.ride.v1.Ride\x121\n" +
 	"\aGetRide\x12\x17.ride.v1.GetRideRequest\x1a\r.ride.v1.Ride\x12C\n" +
@@ -591,39 +849,49 @@ func file_ride_v1_ride_proto_rawDescGZIP() []byte {
 	return file_ride_v1_ride_proto_rawDescData
 }
 
-var file_ride_v1_ride_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_ride_v1_ride_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_ride_v1_ride_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_ride_v1_ride_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_ride_v1_ride_proto_goTypes = []any{
 	(RideStatus)(0),                 // 0: ride.v1.RideStatus
-	(*GeoPoint)(nil),                // 1: ride.v1.GeoPoint
-	(*RequestRideRequest)(nil),      // 2: ride.v1.RequestRideRequest
-	(*Ride)(nil),                    // 3: ride.v1.Ride
-	(*GetRideRequest)(nil),          // 4: ride.v1.GetRideRequest
-	(*UpdateRideStatusRequest)(nil), // 5: ride.v1.UpdateRideStatusRequest
-	(*ListMyRidesRequest)(nil),      // 6: ride.v1.ListMyRidesRequest
-	(*ListMyRidesResponse)(nil),     // 7: ride.v1.ListMyRidesResponse
+	(RideType)(0),                   // 1: ride.v1.RideType
+	(RiderStatus)(0),                // 2: ride.v1.RiderStatus
+	(*GeoPoint)(nil),                // 3: ride.v1.GeoPoint
+	(*Rider)(nil),                   // 4: ride.v1.Rider
+	(*RequestRideRequest)(nil),      // 5: ride.v1.RequestRideRequest
+	(*Ride)(nil),                    // 6: ride.v1.Ride
+	(*GetRideRequest)(nil),          // 7: ride.v1.GetRideRequest
+	(*UpdateRideStatusRequest)(nil), // 8: ride.v1.UpdateRideStatusRequest
+	(*ListMyRidesRequest)(nil),      // 9: ride.v1.ListMyRidesRequest
+	(*ListMyRidesResponse)(nil),     // 10: ride.v1.ListMyRidesResponse
 }
 var file_ride_v1_ride_proto_depIdxs = []int32{
-	1,  // 0: ride.v1.RequestRideRequest.pickup:type_name -> ride.v1.GeoPoint
-	1,  // 1: ride.v1.RequestRideRequest.dropoff:type_name -> ride.v1.GeoPoint
-	1,  // 2: ride.v1.Ride.pickup:type_name -> ride.v1.GeoPoint
-	1,  // 3: ride.v1.Ride.dropoff:type_name -> ride.v1.GeoPoint
-	0,  // 4: ride.v1.Ride.status:type_name -> ride.v1.RideStatus
-	0,  // 5: ride.v1.UpdateRideStatusRequest.status:type_name -> ride.v1.RideStatus
-	3,  // 6: ride.v1.ListMyRidesResponse.rides:type_name -> ride.v1.Ride
-	2,  // 7: ride.v1.RideService.RequestRide:input_type -> ride.v1.RequestRideRequest
-	4,  // 8: ride.v1.RideService.GetRide:input_type -> ride.v1.GetRideRequest
-	5,  // 9: ride.v1.RideService.UpdateRideStatus:input_type -> ride.v1.UpdateRideStatusRequest
-	6,  // 10: ride.v1.RideService.ListMyRides:input_type -> ride.v1.ListMyRidesRequest
-	3,  // 11: ride.v1.RideService.RequestRide:output_type -> ride.v1.Ride
-	3,  // 12: ride.v1.RideService.GetRide:output_type -> ride.v1.Ride
-	3,  // 13: ride.v1.RideService.UpdateRideStatus:output_type -> ride.v1.Ride
-	7,  // 14: ride.v1.RideService.ListMyRides:output_type -> ride.v1.ListMyRidesResponse
-	11, // [11:15] is the sub-list for method output_type
-	7,  // [7:11] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	3,  // 0: ride.v1.Rider.pickup:type_name -> ride.v1.GeoPoint
+	3,  // 1: ride.v1.Rider.dropoff:type_name -> ride.v1.GeoPoint
+	2,  // 2: ride.v1.Rider.status:type_name -> ride.v1.RiderStatus
+	3,  // 3: ride.v1.RequestRideRequest.pickup:type_name -> ride.v1.GeoPoint
+	3,  // 4: ride.v1.RequestRideRequest.dropoff:type_name -> ride.v1.GeoPoint
+	1,  // 5: ride.v1.RequestRideRequest.type:type_name -> ride.v1.RideType
+	3,  // 6: ride.v1.Ride.pickup:type_name -> ride.v1.GeoPoint
+	3,  // 7: ride.v1.Ride.dropoff:type_name -> ride.v1.GeoPoint
+	0,  // 8: ride.v1.Ride.status:type_name -> ride.v1.RideStatus
+	1,  // 9: ride.v1.Ride.type:type_name -> ride.v1.RideType
+	4,  // 10: ride.v1.Ride.riders:type_name -> ride.v1.Rider
+	0,  // 11: ride.v1.UpdateRideStatusRequest.status:type_name -> ride.v1.RideStatus
+	2,  // 12: ride.v1.UpdateRideStatusRequest.rider_status:type_name -> ride.v1.RiderStatus
+	6,  // 13: ride.v1.ListMyRidesResponse.rides:type_name -> ride.v1.Ride
+	5,  // 14: ride.v1.RideService.RequestRide:input_type -> ride.v1.RequestRideRequest
+	7,  // 15: ride.v1.RideService.GetRide:input_type -> ride.v1.GetRideRequest
+	8,  // 16: ride.v1.RideService.UpdateRideStatus:input_type -> ride.v1.UpdateRideStatusRequest
+	9,  // 17: ride.v1.RideService.ListMyRides:input_type -> ride.v1.ListMyRidesRequest
+	6,  // 18: ride.v1.RideService.RequestRide:output_type -> ride.v1.Ride
+	6,  // 19: ride.v1.RideService.GetRide:output_type -> ride.v1.Ride
+	6,  // 20: ride.v1.RideService.UpdateRideStatus:output_type -> ride.v1.Ride
+	10, // 21: ride.v1.RideService.ListMyRides:output_type -> ride.v1.ListMyRidesResponse
+	18, // [18:22] is the sub-list for method output_type
+	14, // [14:18] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_ride_v1_ride_proto_init() }
@@ -636,8 +904,8 @@ func file_ride_v1_ride_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_ride_v1_ride_proto_rawDesc), len(file_ride_v1_ride_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   7,
+			NumEnums:      3,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

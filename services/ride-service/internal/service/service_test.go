@@ -227,3 +227,48 @@ func TestListMyRides(t *testing.T) {
 		t.Fatalf("expected 3 rides, got %d", len(resp.GetRides()))
 	}
 }
+
+func TestRequestRide_Pool(t *testing.T) {
+	loc := &fakeLocationClient{
+		drivers: []*locationv1.NearbyDriver{
+			{DriverId: "drv_1", Latitude: 40.712, Longitude: -74.005, DistanceMeters: 300},
+		},
+	}
+	drv := &fakeDriverClient{}
+	s := newSvc(t, loc, drv)
+	ctx := context.Background()
+
+	// 1st pool request: creates new pool trip and matches drv_1
+	ride1, err := s.RequestRide(ctx, &ridev1.RequestRideRequest{
+		PassengerId: "p_1",
+		Pickup:      &ridev1.GeoPoint{Latitude: 40.7128, Longitude: -74.0060},
+		Dropoff:     &ridev1.GeoPoint{Latitude: 40.7580, Longitude: -73.9855},
+		Type:        ridev1.RideType_POOL,
+	})
+	if err != nil {
+		t.Fatalf("RequestRide pool 1: %v", err)
+	}
+	if ride1.GetType() != ridev1.RideType_POOL {
+		t.Errorf("expected RideType_POOL, got %v", ride1.GetType())
+	}
+	if ride1.GetDriverId() != "drv_1" {
+		t.Errorf("expected drv_1, got %s", ride1.GetDriverId())
+	}
+
+	// 2nd pool request nearby: joins existing pool trip
+	ride2, err := s.RequestRide(ctx, &ridev1.RequestRideRequest{
+		PassengerId: "p_2",
+		Pickup:      &ridev1.GeoPoint{Latitude: 40.7130, Longitude: -74.0062},
+		Dropoff:     &ridev1.GeoPoint{Latitude: 40.7582, Longitude: -73.9850},
+		Type:        ridev1.RideType_POOL,
+	})
+	if err != nil {
+		t.Fatalf("RequestRide pool 2: %v", err)
+	}
+	if ride2.GetId() != ride1.GetId() {
+		t.Errorf("expected p_2 to join ride1 (%s), got %s", ride1.GetId(), ride2.GetId())
+	}
+	if ride2.GetRiderCount() != 2 {
+		t.Errorf("expected rider count 2, got %d", ride2.GetRiderCount())
+	}
+}

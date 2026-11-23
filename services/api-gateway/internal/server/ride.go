@@ -21,6 +21,7 @@ type rideRequestSignals struct {
 	PickupLng  float64 `json:"pickupLng"`
 	DropoffLat float64 `json:"dropoffLat"`
 	DropoffLng float64 `json:"dropoffLng"`
+	Pool       bool    `json:"pool"`
 }
 
 // apiRequestRide creates a ride and redirects to its tracking page.
@@ -29,10 +30,16 @@ func (a *App) apiRequestRide(w http.ResponseWriter, r *http.Request) {
 	var s rideRequestSignals
 	_ = datastar.ReadSignals(r, &s)
 
+	rideType := ridev1.RideType_SOLO
+	if s.Pool {
+		rideType = ridev1.RideType_POOL
+	}
+
 	ride, err := a.clients.Ride.RequestRide(r.Context(), &ridev1.RequestRideRequest{
 		PassengerId: user.ID,
 		Pickup:      &ridev1.GeoPoint{Latitude: s.PickupLat, Longitude: s.PickupLng},
 		Dropoff:     &ridev1.GeoPoint{Latitude: s.DropoffLat, Longitude: s.DropoffLng},
+		Type:        rideType,
 	})
 	sse := datastar.NewSSE(w, r)
 	if err != nil {
@@ -183,12 +190,21 @@ func renderRideStatusPanel(ride *ridev1.Ride) string {
 		cancelBtn = fmt.Sprintf(`<div style="margin-top:10px;"><button class="btn danger sm" data-on:click="@post('/api/rides/%s/cancel')">Cancel ride</button></div>`, ride.GetId())
 	}
 
+	poolBadge := ""
+	if ride.GetType() == ridev1.RideType_POOL {
+		rc := ride.GetRiderCount()
+		if rc <= 0 {
+			rc = 1
+		}
+		poolBadge = fmt.Sprintf(` <span class="badge" style="background:#8b5cf6;color:#fff;">Pool (%d/%d riders)</span>`, rc, ride.GetMaxRiders())
+	}
+
 	return fmt.Sprintf(`<div id="ride-status" class="status %s">
-		<span class="badge %s">%s</span>
+		<span class="badge %s">%s</span>%s
 		<div class="driver">%s %s</div>
 		%s
 		%s
-	</div>`, cls, cls, title, icon, sub, fare, cancelBtn)
+	</div>`, cls, cls, title, poolBadge, icon, sub, fare, cancelBtn)
 }
 
 func statusClass(status string) string {

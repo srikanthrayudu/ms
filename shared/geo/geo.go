@@ -18,3 +18,23 @@ func Haversine(lat1, lng1, lat2, lng2 float64) float64 {
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 	return EarthRadiusMeters * c
 }
+
+// SoloFare computes the solo ride fare in USD.
+// Formula: $3.00 base + $1.50/km.
+func SoloFare(distanceMeters float64) float64 {
+	return 3.0 + 1.5*(distanceMeters/1000.0)
+}
+
+// PoolFare computes the per-rider fare for a pool trip.
+// Each additional rider reduces everyone's cost; a 20% detour premium is added
+// per extra rider to compensate the driver for the longer route.
+// Formula: soloFare / riders  +  $0.30/km per extra rider (detour surcharge).
+func PoolFare(distanceMeters float64, riders int) float64 {
+	if riders <= 0 {
+		riders = 1
+	}
+	solo := SoloFare(distanceMeters)
+	shared := solo / float64(riders)
+	detourPerRider := 0.30 * (distanceMeters / 1000.0) * float64(riders-1)
+	return shared + detourPerRider
+}
