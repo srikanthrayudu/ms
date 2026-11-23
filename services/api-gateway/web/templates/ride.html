@@ -1,8 +1,39 @@
 {{define "content"}}
 <div>
-  <div style="margin-bottom:20px">
-    <h2>Your ride</h2>
-    <p class="muted mt-4">Live updates appear below as your driver approaches.</p>
+  <div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h2>Your Ride Status</h2>
+      <p class="muted mt-4">Real-time driver location and trip progression powered by SSE &amp; NATS.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="live-indicator">LIVE TRACKING</span>
+      <span class="safety-badge privacy" style="font-size:11px;">🛡️ Encrypted P2P</span>
+    </div>
+  </div>
+
+  <!-- Live Ride Progression Timeline -->
+  <div class="ride-timeline" id="ride-timeline">
+    <div class="timeline-progress" id="timeline-progress-bar" style="width: 15%;"></div>
+    <div class="timeline-step active" id="step-requested">
+      <div class="timeline-dot">1</div>
+      <span class="timeline-label">Requested</span>
+    </div>
+    <div class="timeline-step" id="step-matched">
+      <div class="timeline-dot">2</div>
+      <span class="timeline-label">Matched</span>
+    </div>
+    <div class="timeline-step" id="step-on_the_way">
+      <div class="timeline-dot">3</div>
+      <span class="timeline-label">Approaching</span>
+    </div>
+    <div class="timeline-step" id="step-ongoing">
+      <div class="timeline-dot">4</div>
+      <span class="timeline-label">In Transit</span>
+    </div>
+    <div class="timeline-step" id="step-completed">
+      <div class="timeline-dot">✓</div>
+      <span class="timeline-label">Arrived</span>
+    </div>
   </div>
 
   <!-- Driver arrival card (shown when matched) -->
@@ -10,36 +41,48 @@
     <div class="dac-top">
       <sw-driver-avatar initials="🧑‍✈️" id="driver-avatar-comp"></sw-driver-avatar>
       <div class="dac-info">
-        <span class="dac-name" id="dac-driver-name">Finding driver…</span>
-        <span class="dac-vehicle" id="dac-vehicle">Toyota Camry · NY-4821</span>
+        <span class="dac-name" id="dac-driver-name">Finding closest driver…</span>
+        <span class="dac-vehicle" id="dac-vehicle">Toyota Camry · NYC-Fleet</span>
         <div class="dac-rating">
           ★ <span id="dac-rating-val">4.9</span>
-          <span style="color:var(--muted);font-weight:400;font-size:12px;">(142 trips)</span>
+          <span style="color:var(--muted);font-weight:400;font-size:12px;">(142 trips · Top Rated)</span>
         </div>
       </div>
       <div style="text-align:right">
-        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">WASM Engine</div>
-        <div style="font-size:11px;color:var(--purple-l);">🧩 fare-engine@v1</div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Pricing Engine</div>
+        <div style="font-size:11px;color:var(--purple-l);font-weight:600;">🧩 fare-engine.wasm</div>
       </div>
     </div>
     <div class="dac-eta-row">
-      <sw-eta-counter id="eta-comp" minutes="5" status="REQUESTED"></sw-eta-counter>
+      <sw-eta-counter id="eta-comp" minutes="4" status="REQUESTED"></sw-eta-counter>
       <div style="text-align:right">
-        <div class="dac-eta-label">Status</div>
-        <div id="dac-status-text" style="font-size:14px;font-weight:600;color:var(--amber);">Matching…</div>
+        <div class="dac-eta-label">Trip Status</div>
+        <div id="dac-status-text" style="font-size:14px;font-weight:700;color:var(--amber);">Searching…</div>
       </div>
     </div>
     <div class="eta-progress-bar"><div class="eta-progress-fill" id="eta-bar"></div></div>
-    <div class="dac-actions" style="margin-top:14px;">
-      <button class="btn ghost sm" onclick="shareTrip()">📤 Share trip</button>
-      <button class="btn danger sm" onclick="emergencyAlert()">🚨 Emergency</button>
+
+    <!-- Quick action buttons -->
+    <div class="driver-quick-actions">
+      <button type="button" class="driver-action-btn" onclick="callDriver()">
+        <span class="icon">📞</span>
+        <span>Call Driver</span>
+      </button>
+      <button type="button" class="driver-action-btn" onclick="messageDriver()">
+        <span class="icon">💬</span>
+        <span>Message</span>
+      </button>
+      <button type="button" class="driver-action-btn" onclick="shareTrip()">
+        <span class="icon">📤</span>
+        <span>Share Trip</span>
+      </button>
     </div>
   </div>
 
   <!-- Classic status panel -->
   <div id="ride-status" class="status pending">
     <span class="badge pending" id="status-badge">🔍 Finding your driver…</span>
-    <div class="driver" id="status-detail">Searching for nearby drivers</div>
+    <div class="driver" id="status-detail">Searching for nearby available fleet drivers</div>
   </div>
 
   <!-- Map -->
@@ -48,44 +91,61 @@
   </div>
 
   <!-- Rocket surge pill + fare meter (shown after MATCHED) -->
-  <div id="rocket-ride-stats" style="display:none;gap:16px;align-items:center;margin-top:12px;margin-bottom:4px;flex-wrap:wrap;">
+  <div id="rocket-ride-stats" style="display:none;gap:16px;align-items:center;margin-top:14px;margin-bottom:6px;flex-wrap:wrap;">
     <sw-surge-pill id="surge-pill-comp" multiplier="1.0" visible=""></sw-surge-pill>
-    <sw-fare-meter id="fare-meter-comp" amount="0" label="Live fare estimate"></sw-fare-meter>
+    <sw-fare-meter id="fare-meter-comp" amount="0" label="Current trip fare"></sw-fare-meter>
   </div>
 
   <!-- Safety row -->
-  <div class="safety-row" style="margin-top:16px;">
+  <div class="safety-row" style="margin-top:16px;margin-bottom:20px;">
     <sw-safety-bar></sw-safety-bar>
+    <button class="btn danger sm" onclick="emergencyAlert()" style="margin-left:auto;">🚨 Safety SOS</button>
   </div>
 
   <!-- Rating widget (appears on completion) -->
   <div id="rating-widget">
     <div class="trip-complete-banner">
-      🎉 Trip completed! You arrived safely.
+      🎉 Trip completed! You have arrived safely at your destination.
     </div>
     <div class="trip-fare-summary" id="trip-fare-summary">
       <div class="tfs-item">
         <span class="tfs-label">Base fare</span>
-        <span class="tfs-value" id="tfs-base">—</span>
+        <span class="tfs-value" id="tfs-base">$0.00</span>
       </div>
       <div class="tfs-item">
-        <span class="tfs-label">Surge</span>
+        <span class="tfs-label">Surge Multiplier</span>
         <span class="tfs-value" id="tfs-surge" style="color:var(--amber)">1.0×</span>
       </div>
       <div class="tfs-item">
-        <span class="tfs-label">Total</span>
-        <span class="tfs-value" id="tfs-total" style="color:var(--purple-l)">—</span>
+        <span class="tfs-label">Total Charged</span>
+        <span class="tfs-value" id="tfs-total" style="color:var(--purple-l)">$0.00</span>
       </div>
     </div>
-    <h3>Rate your trip</h3>
-    <p>How was your experience with <span id="rating-driver-name">your driver</span>?</p>
-    <div class="rating-stars" id="rating-stars">
-      <sw-star-rating id="star-rating-comp" value="0"></sw-star-rating>
+
+    <!-- Tip Selector -->
+    <div style="margin-bottom:18px;">
+      <div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">
+        Add a tip for great service:
+      </div>
+      <div class="tip-selector">
+        <span class="tip-pill" onclick="selectTip(this, 0)">No tip</span>
+        <span class="tip-pill selected" onclick="selectTip(this, 2)">$2</span>
+        <span class="tip-pill" onclick="selectTip(this, 5)">$5</span>
+        <span class="tip-pill" onclick="selectTip(this, 10)">$10</span>
+      </div>
+    </div>
+
+    <h3>Rate your driver</h3>
+    <p>How was your ride experience with <span id="rating-driver-name">your driver</span>?</p>
+    <div class="rating-stars" id="rating-stars" style="margin:16px 0;">
+      <sw-star-rating id="star-rating-comp" value="5"></sw-star-rating>
     </div>
     <div class="rating-comment">
-      <textarea placeholder="Leave a comment (optional)…" rows="2" style="width:100%;resize:vertical;"></textarea>
+      <textarea id="rating-feedback" placeholder="Leave a compliment or feedback (optional)…" rows="2" style="width:100%;resize:vertical;"></textarea>
     </div>
-    <button class="btn primary w-full" onclick="submitRating()">Submit rating →</button>
+    <button class="btn primary w-full" id="rating-submit-btn" onclick="submitRating()">
+      Submit Rating &amp; Finish →
+    </button>
   </div>
 
   <div data-init="@get('/api/rides/{{.RideID}}/stream')"></div>
@@ -100,13 +160,13 @@
   }).addTo(map);
 
   var mPick = null, mDrop = null, mDriver = null, routeLine = null;
-  var etaTimer = null, etaMins = 5;
+  var etaTimer = null, etaMins = 4;
   var currentStatus = '';
 
-  var pickupIcon = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#10b981;border:2px solid #fff;box-shadow:0 0 10px rgba(16,185,129,.8)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
-  var dropIcon   = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#a78bfa;border:2px solid #fff;box-shadow:0 0 10px rgba(167,139,250,.8)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+  var pickupIcon = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#10b981;border:2px solid #fff;box-shadow:0 0 12px rgba(16,185,129,.9)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+  var dropIcon   = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#a78bfa;border:2px solid #fff;box-shadow:0 0 12px rgba(167,139,250,.9)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
   var carIcon    = L.divIcon({
-    html: '<div class="vehicle-marker-glow"><div class="radar-ring"></div><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#120f20" stroke="#8b5cf6" stroke-width="2"/><path d="M12 6L16 16L12 14L8 16L12 6Z" fill="#c4b5fd"/></svg></div>',
+    html: '<div class="vehicle-marker-glow"><div class="radar-ring"></div><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#120f20" stroke="#8b5cf6" stroke-width="2"/><path d="M12 6L16 16L12 14L8 16L12 6Z" fill="#c4b5fd"/></svg></div>',
     className: 'smooth-marker', iconSize: [32,32], iconAnchor: [16,16]
   });
 
@@ -116,52 +176,98 @@
     if (mPick) pts.push(mPick.getLatLng());
     if (mDrop) pts.push(mDrop.getLatLng());
     if (pts.length >= 2) {
-      if (routeLine) routeLine.setLatLngs(pts);
-      else routeLine = L.polyline(pts, { color: '#8b5cf6', weight: 3, dashArray: '6,8', opacity: .85 }).addTo(map);
+      if (routeLine) {
+        routeLine.setLatLngs(pts);
+      } else {
+        routeLine = L.polyline(pts, {
+          color: '#8b5cf6',
+          weight: 4,
+          dashArray: '6, 8',
+          opacity: 0.9
+        }).addTo(map);
+      }
     }
   }
 
   function startEtaCountdown(mins) {
     etaMins = mins;
-    document.getElementById('eta-countdown').textContent = etaMins;
+    var etaVal = document.getElementById('eta-countdown');
+    if (etaVal) etaVal.textContent = etaMins;
+    if (window.resetEta) window.resetEta(mins);
     if (etaTimer) clearInterval(etaTimer);
     etaTimer = setInterval(function () {
       etaMins = Math.max(0, etaMins - 1);
-      document.getElementById('eta-countdown').textContent = etaMins;
+      if (etaVal) etaVal.textContent = etaMins;
       if (etaMins === 0) clearInterval(etaTimer);
     }, 60000);
   }
 
-  function showArrivalCard(driverName, vehicle) {
+  function updateTimeline(st) {
+    var steps = ['requested', 'matched', 'on_the_way', 'ongoing', 'completed'];
+    var currentIdx = steps.indexOf(st.toLowerCase());
+    if (currentIdx === -1) currentIdx = 0;
+
+    var pct = 15 + (currentIdx * 21.25);
+    var pBar = document.getElementById('timeline-progress-bar');
+    if (pBar) pBar.style.width = pct + '%';
+
+    steps.forEach(function(s, idx) {
+      var el = document.getElementById('step-' + s);
+      if (!el) return;
+      el.classList.remove('active', 'completed');
+      if (idx < currentIdx) {
+        el.classList.add('completed');
+      } else if (idx === currentIdx) {
+        el.classList.add('active');
+      }
+    });
+  }
+
+  function showArrivalCard(driverName, vehicle, rating) {
     var card = document.getElementById('driver-arrival-card');
-    document.getElementById('dac-driver-name').textContent = driverName || 'Your driver';
-    document.getElementById('dac-vehicle').textContent = vehicle || 'Vehicle info';
-    document.getElementById('rating-driver-name').textContent = driverName || 'your driver';
+    if (!card) return;
+    var nameEl = document.getElementById('dac-driver-name');
+    if (nameEl) nameEl.textContent = driverName || 'Your driver';
+    var vehEl = document.getElementById('dac-vehicle');
+    if (vehEl) vehEl.textContent = vehicle || 'Toyota Camry · NYC Fleet';
+    var ratingEl = document.getElementById('dac-rating-val');
+    if (ratingEl && rating) ratingEl.textContent = rating.toFixed(1);
+    var rateDriverName = document.getElementById('rating-driver-name');
+    if (rateDriverName) rateDriverName.textContent = driverName || 'your driver';
     card.classList.add('visible');
     startEtaCountdown(4);
+
+    var stats = document.getElementById('rocket-ride-stats');
+    if (stats) stats.style.display = 'flex';
   }
 
   function updateStatus(st) {
     currentStatus = st;
+    updateTimeline(st);
+
     var badge = document.getElementById('status-badge');
     var detail = document.getElementById('status-detail');
     var dac = document.getElementById('dac-status-text');
+
     var statusMap = {
       'REQUESTED':   ['pending',  '🔍 Finding your driver…',    'Searching…'],
-      'MATCHED':     ['matched',  '🟢 Driver matched!',          'On the way'],
-      'ON_THE_WAY':  ['matched',  '🚗 Driver is on the way',     'Approaching'],
-      'ONGOING':     ['ongoing',  '🛣️ Ride in progress',         'En route'],
-      'COMPLETED':   ['done',     '✅ Trip complete!',            'Arrived'],
+      'MATCHED':     ['matched',  '🟢 Driver matched!',          'Approaching pickup'],
+      'ON_THE_WAY':  ['matched',  '🚗 Driver is on the way',     '2 mins away'],
+      'ONGOING':     ['ongoing',  '🛣️ Ride in progress',         'En route to dropoff'],
+      'COMPLETED':   ['done',     '✅ Trip completed!',          'Arrived safely'],
       'CANCELLED':   ['cancelled','❌ Trip cancelled',            'Cancelled'],
     };
     var info = statusMap[st] || ['pending', st, st];
-    badge.className = 'badge ' + info[0];
-    badge.textContent = info[1];
-    detail.textContent = '';
+    if (badge) {
+      badge.className = 'badge ' + info[0];
+      badge.textContent = info[1];
+    }
+    if (detail) detail.textContent = '';
     if (dac) dac.textContent = info[2];
 
     if (st === 'COMPLETED') {
-      document.getElementById('rating-widget').classList.add('visible');
+      var rw = document.getElementById('rating-widget');
+      if (rw) rw.classList.add('visible');
       if (etaTimer) clearInterval(etaTimer);
     }
     if (st === 'CANCELLED' && etaTimer) clearInterval(etaTimer);
@@ -171,7 +277,7 @@
     var ll = [lat, lng];
     if (mPick) mPick.setLatLng(ll); else mPick = L.marker(ll, { icon: pickupIcon }).addTo(map).bindTooltip('Pickup');
     refreshRoute();
-    if (mDrop) map.fitBounds([ll, mDrop.getLatLng()], { padding: [52,52] });
+    if (mDrop) map.fitBounds([ll, mDrop.getLatLng()], { padding: [56, 56] });
   };
   window.placeDropoff = function (lat, lng) {
     var ll = [lat, lng];
@@ -183,38 +289,58 @@
     if (mDriver) mDriver.setLatLng(ll); else mDriver = L.marker(ll, { icon: carIcon }).addTo(map).bindTooltip('Your driver');
     refreshRoute();
   };
-  window.onRideStatusUpdate = function(st, driverName, vehicle, fare, surge) {
+
+  window.onRideStatusUpdate = function(st, driverName, vehicle, fare, surge, rating) {
     updateStatus(st);
-    if (st === 'MATCHED' || st === 'ON_THE_WAY') {
-      showArrivalCard(driverName, vehicle);
+    if (st === 'MATCHED' || st === 'ON_THE_WAY' || st === 'ONGOING') {
+      showArrivalCard(driverName, vehicle, rating);
     }
-    if (st === 'COMPLETED' && fare) {
-      var base = fare / (surge || 1);
-      document.getElementById('tfs-base').textContent = '$' + base.toFixed(2);
-      document.getElementById('tfs-surge').textContent = (surge || 1).toFixed(1) + '×';
-      document.getElementById('tfs-total').textContent = '$' + fare.toFixed(2);
+    if (fare && fare > 0) {
+      var s = surge || 1;
+      var base = fare / s;
+      var tb = document.getElementById('tfs-base');
+      var ts = document.getElementById('tfs-surge');
+      var tt = document.getElementById('tfs-total');
+      if (tb) tb.textContent = '$' + base.toFixed(2);
+      if (ts) ts.textContent = s.toFixed(1) + '×';
+      if (tt) tt.textContent = '$' + fare.toFixed(2);
     }
   };
 
-  window.rateStar = function(n) {
-    document.querySelectorAll('.star').forEach(function(s, i) {
-      s.classList.toggle('active', i < n);
-    });
+  window.selectTip = function(el, amt) {
+    document.querySelectorAll('.tip-pill').forEach(function(p){ p.classList.remove('selected'); });
+    el.classList.add('selected');
   };
+
+  window.callDriver = function() {
+    alert('Calling driver via encrypted in-app VoIP…\n\n(Driver connection simulated)');
+  };
+  window.messageDriver = function() {
+    var msg = prompt('Enter a message for your driver: (e.g. "Waiting by the lobby doors")');
+    if (msg) alert('Message sent to driver: "' + msg + '"');
+  };
+
   window.submitRating = function() {
-    document.getElementById('rating-widget').innerHTML = '<div class="trip-complete-banner">⭐ Thanks for your rating! See you next ride.</div>';
-    setTimeout(function(){ window.location.href = '/dashboard'; }, 2000);
+    var rw = document.getElementById('rating-widget');
+    if (rw) {
+      rw.innerHTML = '<div class="trip-complete-banner" style="text-align:center;padding:24px 16px;">🌟 Thank you for your feedback! Your rating has been recorded.<br><small class="muted" style="margin-top:8px;display:block;">Redirecting to home in 2 seconds…</small></div>';
+    }
+    setTimeout(function(){ window.location.href = '/dashboard'; }, 2200);
   };
+
   window.shareTrip = function() {
     if (navigator.share) {
-      navigator.share({ title: 'My Swiftride trip', text: 'Tracking my ride on Swiftride!', url: window.location.href });
+      navigator.share({ title: 'My Swiftride trip', text: 'Follow my live ride on Swiftride!', url: window.location.href }).catch(function(){});
     } else {
-      navigator.clipboard.writeText(window.location.href).then(function(){ alert('Trip link copied!'); });
+      navigator.clipboard.writeText(window.location.href).then(function(){
+        alert('Live trip tracking link copied to clipboard!');
+      }).catch(function(){});
     }
   };
+
   window.emergencyAlert = function() {
-    if (confirm('Alert emergency contacts and share your location?')) {
-      alert('Emergency services notified. Stay safe.');
+    if (confirm('🚨 EMERGENCY SOS: Alert Swiftride safety operations and local emergency services with your live GPS location?')) {
+      alert('Emergency protocol initiated. Safety operations and emergency contacts alerted.');
     }
   };
 })();

@@ -1,35 +1,58 @@
 {{define "content"}}
 <div class="auth-wrap">
-  <h2>Create your account</h2>
-  <p class="sub">Join Swiftride in under a minute.</p>
+  <div class="auth-logo">
+    <div class="brand-icon">⚡</div>
+  </div>
+  <h2 style="letter-spacing:-.03em;">Create your account</h2>
+  <p class="sub">Join Swiftride in under a minute with encrypted privacy.</p>
 
   <div class="card" data-signals="{email:'',password:'',name:'',phone:'',role:'passenger'}">
     <form data-on:submit="@post('/api/register')">
-      <label>
-        <span>Full name</span>
-        <input data-bind="name" placeholder="Jane Smith" required autocomplete="name">
-      </label>
-      <label>
-        <span>Email address</span>
-        <input type="email" data-bind="email" placeholder="you@example.com" required autocomplete="email">
-      </label>
-      <label>
-        <span>Password</span>
-        <input type="password" data-bind="password" placeholder="••••••••" required autocomplete="new-password" minlength="6">
-      </label>
-      <label>
-        <span>Phone number <span class="text-xs" style="color:var(--muted)">(optional)</span></span>
-        <input type="tel" data-bind="phone" placeholder="+1 555 000 0000" autocomplete="tel">
-      </label>
-      <label>
-        <span>I want to</span>
-        <select data-bind="role">
-          <option value="passenger">Book rides as a Passenger</option>
-          <option value="driver">Earn money as a Driver</option>
+      <!-- Role Selector Tiles -->
+      <div style="margin-bottom:18px;">
+        <span style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:8px;">
+          I want to:
+        </span>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="ride-type-card selected" id="role-tile-passenger" onclick="selectRole('passenger')" style="padding:14px 10px;">
+            <div style="font-size:24px;margin-bottom:4px;">🚗</div>
+            <div style="font-size:14px;font-weight:700;color:var(--text);">Passenger</div>
+            <div style="font-size:11px;color:var(--muted);">Book rides</div>
+          </div>
+          <div class="ride-type-card" id="role-tile-driver" onclick="selectRole('driver')" style="padding:14px 10px;">
+            <div style="font-size:24px;margin-bottom:4px;">🧑‍✈️</div>
+            <div style="font-size:14px;font-weight:700;color:var(--text);">Driver</div>
+            <div style="font-size:11px;color:var(--muted);">Drive &amp; earn</div>
+          </div>
+        </div>
+        <select data-bind="role" id="role-select" style="display:none;">
+          <option value="passenger" selected>passenger</option>
+          <option value="driver">driver</option>
         </select>
-      </label>
-      <div class="form-actions">
-        <button class="btn primary w-full" type="submit">Create account</button>
+      </div>
+
+      <div class="form-group">
+        <label>
+          <span>Full name</span>
+          <input data-bind="name" placeholder="e.g. Alex Morgan" required autocomplete="name">
+        </label>
+        <label>
+          <span>Email address</span>
+          <input type="email" data-bind="email" placeholder="you@example.com" required autocomplete="email">
+        </label>
+        <label>
+          <span>Password</span>
+          <input type="password" data-bind="password" placeholder="••••••••" required autocomplete="new-password" minlength="6">
+        </label>
+        <label>
+          <span>Phone number <span class="text-xs" style="color:var(--muted)">(optional)</span></span>
+          <input type="tel" data-bind="phone" placeholder="+1 555 000 0000" autocomplete="tel">
+        </label>
+        <div class="form-actions">
+          <button class="btn primary w-full" type="submit" style="font-size:15px;box-shadow:var(--glow-p);">
+            Create Account &amp; Start →
+          </button>
+        </div>
       </div>
     </form>
     <div id="form-error"></div>
@@ -37,4 +60,24 @@
 
   <p class="auth-footer">Already have an account? <a href="/login">Sign in</a></p>
 </div>
+
+<script>
+window.selectRole = function(role) {
+  var pTile = document.getElementById('role-tile-passenger');
+  var dTile = document.getElementById('role-tile-driver');
+  var sel = document.getElementById('role-select');
+  if (role === 'passenger') {
+    pTile.classList.add('selected');
+    dTile.classList.remove('selected');
+  } else {
+    dTile.classList.add('selected');
+    pTile.classList.remove('selected');
+  }
+  if (sel) {
+    sel.value = role;
+    sel.dispatchEvent(new Event('input', { bubbles: true }));
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+};
+</script>
 {{end}}

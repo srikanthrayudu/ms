@@ -69,12 +69,11 @@ func (a *App) apiOpsStream(w http.ResponseWriter, r *http.Request) {
 		if err := json.Unmarshal(m.Data, &ev); err != nil {
 			return
 		}
-		// Append to live event ticker
-		msg := fmt.Sprintf(
-			`<div class="ticker-item"><span class="ticker-badge %s">%s</span> Ride <b>%s</b> &middot; Status: %s</div>`,
-			statusClass(ev.Status), ev.Type, ev.RideID, ev.Status,
-		)
-		_ = sse.PatchElements(msg)
+		// Dispatch event to client via JavaScript hook
+		_ = sse.ExecuteScript(fmt.Sprintf(
+			"if (window.appendOpsEvent) window.appendOpsEvent(%q, %q, %q, %q)",
+			ev.Type, ev.RideID, ev.Status, statusClass(ev.Status),
+		))
 	})
 	if err == nil {
 		defer rideSub.Unsubscribe()

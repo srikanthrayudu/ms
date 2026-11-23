@@ -1,20 +1,23 @@
 {{define "content"}}
 <div class="auth-wrap">
-  <h2>Welcome back</h2>
-  <p class="sub">Sign in to your Swiftride account.</p>
+  <div class="auth-logo">
+    <div class="brand-icon">⚡</div>
+  </div>
+  <h2 style="letter-spacing:-.03em;">Welcome back</h2>
+  <p class="sub">Sign in to your Swiftride account or use a 1-click demo.</p>
 
   <div class="demo-panel">
-    <p class="demo-panel-label">Try a demo account</p>
+    <p class="demo-panel-label">⚡ 1-Click Demo Accounts</p>
     <div class="demo-grid">
-      <button class="demo-btn" onclick="fillDemo('passenger@demo.com','demo1234')">
-        <span class="demo-role-pill pill-passenger">Passenger</span>
+      <button type="button" class="demo-btn" onclick="fillDemo('passenger@demo.com','demo1234', this)">
+        <span class="demo-role-pill pill-passenger">Passenger Demo</span>
         <span class="demo-email">passenger@demo.com</span>
-        <span class="demo-pwd">demo1234</span>
+        <span class="demo-pwd">demo1234 · Tap to fill</span>
       </button>
-      <button class="demo-btn" onclick="fillDemo('driver@demo.com','demo1234')">
-        <span class="demo-role-pill pill-driver">Driver</span>
+      <button type="button" class="demo-btn" onclick="fillDemo('driver@demo.com','demo1234', this)">
+        <span class="demo-role-pill pill-driver">Driver Demo</span>
         <span class="demo-email">driver@demo.com</span>
-        <span class="demo-pwd">demo1234</span>
+        <span class="demo-pwd">demo1234 · Tap to fill</span>
       </button>
     </div>
   </div>
@@ -23,26 +26,30 @@
 
   <div class="card" data-signals="{email:'',password:''}">
     <form data-on:submit="@post('/api/login')">
-      <label>
-        <span>Email address</span>
-        <input type="email" data-bind="email" placeholder="you@example.com" required autocomplete="email">
-      </label>
-      <label>
-        <span>Password</span>
-        <input type="password" data-bind="password" placeholder="••••••••" required autocomplete="current-password">
-      </label>
-      <div class="form-actions">
-        <button class="btn primary w-full" type="submit">Sign in</button>
+      <div class="form-group">
+        <label>
+          <span>Email address</span>
+          <input type="email" data-bind="email" placeholder="you@example.com" required autocomplete="email">
+        </label>
+        <label>
+          <span>Password</span>
+          <input type="password" data-bind="password" placeholder="••••••••" required autocomplete="current-password">
+        </label>
+        <div class="form-actions">
+          <button class="btn primary w-full" type="submit" style="font-size:15px;box-shadow:var(--glow-p);">
+            Sign in →
+          </button>
+        </div>
       </div>
     </form>
     <div id="form-error"></div>
   </div>
 
-  <p class="auth-footer">Don't have an account? <a href="/register">Create one</a></p>
+  <p class="auth-footer">Don't have an account? <a href="/register">Create one free</a></p>
 </div>
 
 <script>
-function fillDemo(email, pw) {
+function fillDemo(email, pw, btn) {
   function setSig(name, val) {
     var el = document.querySelector('[data-bind="' + name + '"]');
     if (!el) return;
@@ -53,6 +60,16 @@ function fillDemo(email, pw) {
   }
   setSig('email', email);
   setSig('password', pw);
+
+  if (btn) {
+    var originalBorder = btn.style.borderColor;
+    btn.style.borderColor = 'var(--green)';
+    btn.style.boxShadow = '0 0 12px rgba(16,185,129,.3)';
+    setTimeout(function() {
+      btn.style.borderColor = originalBorder;
+      btn.style.boxShadow = '';
+    }, 1000);
+  }
 }
 
 (function ensureDemoAccounts() {

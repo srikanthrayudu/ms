@@ -1,64 +1,122 @@
 {{define "content"}}
 <div>
-  <div class="payments-header">
+  <div class="payments-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
     <div>
-      <h2>Payment history</h2>
-      <p class="muted mt-4">Your completed trips and fare breakdowns.</p>
+      <h2>Trip Receipts &amp; Payments</h2>
+      <p class="muted mt-4">Transparent fare accounting, zero hidden fees, and cryptographic auditability.</p>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn ghost sm" onclick="exportReceipts()">📥 Export CSV</button>
     </div>
   </div>
 
-  <!-- Summary stats (populated by JS from payment list) -->
-  <div class="payments-stats" id="payments-stats" style="display:none">
+  <!-- Summary stats -->
+  <div class="payments-stats" id="payments-stats" style="display:grid;">
     <div class="stat-card">
-      <span class="stat-label">Total trips</span>
+      <span class="stat-label">Total Trips</span>
       <span class="stat-value" id="stat-trips">—</span>
-      <span class="stat-sub">all time</span>
+      <span class="stat-sub">completed journeys</span>
     </div>
     <div class="stat-card">
-      <span class="stat-label">Total spent</span>
-      <span class="stat-value" id="stat-total">—</span>
-      <span class="stat-sub">including surge</span>
+      <span class="stat-label">Total Spend</span>
+      <span class="stat-value" id="stat-total" style="color:var(--green)">—</span>
+      <span class="stat-sub">including dynamic surge</span>
     </div>
     <div class="stat-card">
-      <span class="stat-label">Avg fare</span>
-      <span class="stat-value" id="stat-avg">—</span>
-      <span class="stat-sub">per trip</span>
+      <span class="stat-label">Average Fare</span>
+      <span class="stat-value" id="stat-avg" style="color:var(--purple-l)">—</span>
+      <span class="stat-sub">per completed ride</span>
     </div>
   </div>
 
+  <!-- Saved Payment Methods Card -->
+  <div class="card" style="margin-bottom:20px;padding:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="font-size:15px;display:flex;align-items:center;gap:8px;">
+        <span>💳 Payment Methods</span>
+      </h3>
+      <span class="safety-badge" style="font-size:11px;">Default: Auto-Charge</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px;">
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--panel2);border:1px solid var(--purple);border-radius:var(--radius-sm);box-shadow:0 0 12px rgba(139,92,246,.15);">
+        <span style="font-size:24px;">💳</span>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);">Visa Debit •••• 4242</div>
+          <div style="font-size:11px;color:var(--muted);">Expires 09/28 · Primary</div>
+        </div>
+        <span style="color:var(--green);font-size:14px;">✓</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--panel2);border:1px solid var(--border);border-radius:var(--radius-sm);">
+        <span style="font-size:24px;">🛡️</span>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);">Hopr Private Token</div>
+          <div style="font-size:11px;color:var(--muted);">Zero-Knowledge Balance: 150 HOPR</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trips table card -->
   <div class="card" data-init="@get('/api/payments')">
-    <div id="payment-list" class="muted shimmer" style="height:80px;border-radius:8px;">
-      &nbsp;
+    <div id="payment-list" class="muted shimmer" style="height:100px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+      Loading verified payment ledger…
     </div>
   </div>
 </div>
 
 <script>
-// After datastar renders the payment list, enrich trip cards
 document.addEventListener('DOMContentLoaded', function () {
-  setTimeout(enrichPayments, 1200);
+  setTimeout(enrichPayments, 1000);
 });
+
 function enrichPayments() {
   var list = document.getElementById('payment-list');
-  if (!list || list.classList.contains('muted')) return;
-  var items = list.querySelectorAll('[data-ride-id], .payment-item, tr');
-  if (items.length === 0) return;
-  var total = 0, count = 0;
-  items.forEach(function(item) {
-    var fareText = item.textContent.match(/\$?([\d.]+)/);
-    if (fareText) { total += parseFloat(fareText[1]); count++; }
-  });
-  if (count > 0) {
-    document.getElementById('payments-stats').style.display = 'grid';
-    document.getElementById('stat-trips').textContent = count;
-    document.getElementById('stat-total').textContent = '$' + total.toFixed(2);
-    document.getElementById('stat-avg').textContent = '$' + (total/count).toFixed(2);
+  if (!list) return;
+  var rows = list.querySelectorAll('tbody tr');
+  if (!rows || rows.length === 0) {
+    document.getElementById('stat-trips').textContent = '0';
+    document.getElementById('stat-total').textContent = '$0.00';
+    document.getElementById('stat-avg').textContent = '$0.00';
+    return;
   }
+  var total = 0, count = 0;
+  rows.forEach(function(row) {
+    var moneyCell = row.querySelector('.money');
+    if (moneyCell) {
+      var val = parseFloat(moneyCell.textContent.replace('$', ''));
+      if (!isNaN(val)) {
+        total += val;
+        count++;
+      }
+    }
+  });
+
+  document.getElementById('stat-trips').textContent = count;
+  document.getElementById('stat-total').textContent = '$' + total.toFixed(2);
+  document.getElementById('stat-avg').textContent = count > 0 ? '$' + (total / count).toFixed(2) : '$0.00';
 }
-// Make trip cards expandable
-document.addEventListener('click', function(e) {
-  var card = e.target.closest('.trip-card');
-  if (card) card.classList.toggle('expanded');
-});
+
+window.exportReceipts = function() {
+  var list = document.getElementById('payment-list');
+  var rows = list ? list.querySelectorAll('tbody tr') : [];
+  if (!rows || rows.length === 0) {
+    alert('No completed trips to export yet.');
+    return;
+  }
+  var csv = 'Date,RideID,Amount,Status\n';
+  rows.forEach(function(r) {
+    var cols = r.querySelectorAll('td');
+    if (cols.length >= 4) {
+      csv += '"' + cols[0].textContent.trim() + '","' + cols[1].textContent.trim() + '","' + cols[2].textContent.trim() + '","' + cols[3].textContent.trim() + '"\n';
+    }
+  });
+  var blob = new Blob([csv], { type: 'text/csv' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'swiftride-trips.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+};
 </script>
 {{end}}

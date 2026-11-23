@@ -35,5 +35,13 @@
   <main>
     {{template "content" .}}
   </main>
+  <script>
+  (function() {
+    var p = window.location.pathname;
+    document.querySelectorAll('.topnav a').forEach(function(a) {
+      if (a.getAttribute('href') === p) a.classList.add('nav-active');
+    });
+  })();
+  </script>
 </body>
 </html>{{end}}

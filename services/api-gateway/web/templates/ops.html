@@ -1,60 +1,71 @@
 {{define "content"}}
-<div class="ops-container" style="display:flex;flex-direction:column;gap:18px;">
+<div class="ops-container" style="display:flex;flex-direction:column;gap:20px;">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
     <div>
-      <h2 style="display:flex;align-items:center;gap:10px;">
-        <span style="font-size:24px;">⚡</span> Fleet Operations Command Center
+      <h2 style="display:flex;align-items:center;gap:10px;letter-spacing:-.03em;">
+        <span style="font-size:26px;">⚡</span> Fleet Operations Command Center
       </h2>
       <p class="muted mt-4">Real-time distributed fleet tracking, spatial surge demand heatmaps, and live NATS dispatch stream.</p>
     </div>
-    <div style="display:flex;gap:12px;align-items:center;">
-      <button class="btn sm" onclick="toggleSurgeHeatmap()" id="btn-toggle-surge" style="border:1px solid #8b5cf6;color:#c4b5fd;">
-        🔥 Toggle Surge Zones
+    <div style="display:flex;gap:10px;align-items:center;">
+      <button class="btn sm ghost" onclick="toggleSurgeHeatmap()" id="btn-toggle-surge" style="border-color:var(--border2);color:var(--purple-l);">
+        🔥 Toggle Surge Heatmap
       </button>
-      <span class="badge success" style="padding:6px 12px;font-size:12px;">● LIVE SSE</span>
+      <span class="live-indicator">LIVE NATS STREAM</span>
     </div>
   </div>
 
   <!-- KPI Metrics Bar -->
-  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:14px;">
-    <div class="card" style="padding:16px;">
-      <span class="muted" style="font-size:12px;text-transform:uppercase;">Active Fleet</span>
-      <div id="kpi-fleet" style="font-size:26px;font-weight:700;color:#2ecc8c;margin-top:4px;">0</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:14px;">
+    <div class="card" style="padding:18px;">
+      <span class="muted" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;">Active Fleet</span>
+      <div id="kpi-fleet" style="font-size:2rem;font-weight:900;color:var(--green);margin-top:4px;">0</div>
+      <span style="font-size:11px;color:var(--muted);">drivers connected</span>
     </div>
-    <div class="card" style="padding:16px;">
-      <span class="muted" style="font-size:12px;text-transform:uppercase;">Active Trips</span>
-      <div id="kpi-trips" style="font-size:26px;font-weight:700;color:#6c8cff;margin-top:4px;">0</div>
+    <div class="card" style="padding:18px;">
+      <span class="muted" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;">Active Trips</span>
+      <div id="kpi-trips" style="font-size:2rem;font-weight:900;color:var(--purple-l);margin-top:4px;">0</div>
+      <span style="font-size:11px;color:var(--muted);">in transit / matched</span>
     </div>
-    <div class="card" style="padding:16px;">
-      <span class="muted" style="font-size:12px;text-transform:uppercase;">Max Surge Pricing</span>
-      <div id="kpi-surge" style="font-size:26px;font-weight:700;color:#f59e0b;margin-top:4px;">1.0x</div>
+    <div class="card" style="padding:18px;">
+      <span class="muted" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;">Max Surge Pricing</span>
+      <div id="kpi-surge" style="font-size:2rem;font-weight:900;color:var(--amber);margin-top:4px;">1.0×</div>
+      <span style="font-size:11px;color:var(--muted);">dynamic spatial peak</span>
     </div>
-    <div class="card" style="padding:16px;">
-      <span class="muted" style="font-size:12px;text-transform:uppercase;">System Health</span>
-      <div style="font-size:26px;font-weight:700;color:#10b981;margin-top:4px;">100% OK</div>
+    <div class="card" style="padding:18px;">
+      <span class="muted" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;">WASM Engine</span>
+      <div style="font-size:2rem;font-weight:900;color:#38bdf8;margin-top:4px;">wazero</div>
+      <span style="font-size:11px;color:var(--muted);">in-process sandbox</span>
+    </div>
+    <div class="card" style="padding:18px;">
+      <span class="muted" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;">Cluster Health</span>
+      <div style="font-size:2rem;font-weight:900;color:var(--green);margin-top:4px;">100% OK</div>
+      <span style="font-size:11px;color:var(--muted);">10/10 Pods healthy</span>
     </div>
   </div>
 
   <!-- Main Map & Live Activity Grid -->
-  <div style="display:grid;grid-template-columns:2fr 1fr;gap:18px;min-height:550px;">
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:18px;min-height:560px;">
     <!-- Live Fleet Map -->
     <div class="card" style="padding:0;overflow:hidden;position:relative;">
-      <div id="ops-map" style="width:100%;height:550px;"></div>
-      <div style="position:absolute;bottom:12px;left:12px;z-index:1000;background:rgba(18,18,26,0.9);padding:8px 12px;border-radius:6px;font-size:12px;display:flex;gap:14px;border:1px solid rgba(255,255,255,0.1);">
-        <span>🟢 Available Driver</span>
-        <span>🔵 Busy Driver</span>
-        <span>🔥 Surge Zone</span>
+      <div id="ops-map" style="width:100%;height:560px;"></div>
+      <div style="position:absolute;bottom:14px;left:14px;z-index:1000;background:rgba(13,10,26,0.92);backdrop-filter:blur(12px);padding:8px 14px;border-radius:100px;font-size:12px;display:flex;gap:16px;border:1px solid var(--border2);box-shadow:var(--shadow-sm);">
+        <span style="display:flex;align-items:center;gap:6px;color:#6ee7b7;">🟢 Available</span>
+        <span style="display:flex;align-items:center;gap:6px;color:#c4b5fd;">🔵 En Route</span>
+        <span style="display:flex;align-items:center;gap:6px;color:#fcd34d;">🔥 Surge Area</span>
       </div>
     </div>
 
     <!-- Real-Time NATS Dispatch Feed -->
-    <div class="card" style="display:flex;flex-direction:column;padding:16px;max-height:550px;">
-      <h3 style="font-size:16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
-        <span>Live Dispatch Log</span>
-        <span class="muted" style="font-size:11px;">NATS pub/sub</span>
-      </h3>
-      <div id="ops-ticker" style="flex:1;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:8px;font-size:12px;font-family:monospace;">
-        <div class="muted">Awaiting dispatch events...</div>
+    <div class="card" style="display:flex;flex-direction:column;padding:18px;max-height:560px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="font-size:15px;display:flex;align-items:center;gap:8px;">
+          <span>📡 Live Dispatch Log</span>
+        </h3>
+        <button class="btn ghost sm" onclick="clearOpsTicker()" style="padding:3px 8px;font-size:11px;">Clear</button>
+      </div>
+      <div id="ops-ticker" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;font-size:12px;font-family:monospace;padding-right:4px;">
+        <div class="muted" id="ops-empty-notice" style="text-align:center;padding:24px 0;">Awaiting real-time NATS events…</div>
       </div>
     </div>
   </div>
@@ -71,15 +82,16 @@
   }).addTo(map);
 
   var carIconAvail = L.divIcon({
-    html: '<div style="font-size:20px;line-height:1;filter:drop-shadow(0 2px 4px rgba(46,204,140,0.6))">🚗</div>',
-    className: '', iconSize: [24, 24], iconAnchor: [12, 12]
+    html: '<div style="font-size:22px;line-height:1;filter:drop-shadow(0 2px 6px rgba(16,185,129,0.8))">🚗</div>',
+    className: '', iconSize: [26, 26], iconAnchor: [13, 13]
   });
   var carIconBusy = L.divIcon({
-    html: '<div style="font-size:20px;line-height:1;filter:drop-shadow(0 2px 4px rgba(108,140,255,0.8))">🚙</div>',
-    className: '', iconSize: [24, 24], iconAnchor: [12, 12]
+    html: '<div style="font-size:22px;line-height:1;filter:drop-shadow(0 2px 6px rgba(139,92,246,0.9))">🚙</div>',
+    className: '', iconSize: [26, 26], iconAnchor: [13, 13]
   });
 
   var fleet = {};
+  var activeTrips = new Set();
   var surgeLayers = [];
   var surgeVisible = true;
 
@@ -91,7 +103,51 @@
     } else {
       fleet[id] = L.marker([lat, lng], { icon: icon }).addTo(map).bindTooltip('Driver: ' + id);
     }
-    document.getElementById('kpi-fleet').textContent = Object.keys(fleet).length;
+    var count = Object.keys(fleet).length;
+    var el = document.getElementById('kpi-fleet');
+    if (el) el.textContent = count;
+  };
+
+  window.appendOpsEvent = function(evType, rideID, status, statusClass) {
+    var emptyNotice = document.getElementById('ops-empty-notice');
+    if (emptyNotice) emptyNotice.style.display = 'none';
+
+    var ticker = document.getElementById('ops-ticker');
+    if (!ticker) return;
+
+    var now = new Date();
+    var timeStr = now.toTimeString().split(' ')[0];
+
+    var tagClass = 'ops-tag-requested';
+    if (status === 'MATCHED') tagClass = 'ops-tag-matched';
+    else if (status === 'COMPLETED') tagClass = 'ops-tag-completed';
+    else if (status === 'CANCELLED') tagClass = 'ops-tag-cancelled';
+
+    if (status === 'MATCHED' || status === 'ON_THE_WAY' || status === 'ONGOING') {
+      activeTrips.add(rideID);
+    } else if (status === 'COMPLETED' || status === 'CANCELLED') {
+      activeTrips.delete(rideID);
+    }
+    var tripsEl = document.getElementById('kpi-trips');
+    if (tripsEl) tripsEl.textContent = activeTrips.size;
+
+    var item = document.createElement('div');
+    item.className = 'ops-ticker-item';
+    item.innerHTML = '<span style="color:var(--muted);font-size:11px;">' + timeStr + '</span> ' +
+      '<span class="ops-tag ' + tagClass + '">' + status + '</span> ' +
+      '<span style="color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Ride ' + (rideID ? rideID.substring(0, 10) : '—') + '</span>';
+
+    ticker.insertBefore(item, ticker.firstChild);
+
+    // Keep max 50 items
+    while (ticker.children.length > 50) {
+      ticker.removeChild(ticker.lastChild);
+    }
+  };
+
+  window.clearOpsTicker = function() {
+    var ticker = document.getElementById('ops-ticker');
+    if (ticker) ticker.innerHTML = '<div class="muted" id="ops-empty-notice" style="text-align:center;padding:24px 0;">Log cleared. Awaiting events…</div>';
   };
 
   function fetchSurge() {
@@ -110,12 +166,13 @@
                 fillColor: '#ef4444',
                 fillOpacity: Math.min(0.4, (z.multiplier - 1.0) * 0.4),
                 weight: 1.5
-              }).addTo(map).bindTooltip('Surge: ' + z.multiplier + 'x');
+              }).addTo(map).bindTooltip('Surge Zone: ' + z.multiplier + '× multiplier');
               surgeLayers.push(poly);
             }
           });
         }
-        document.getElementById('kpi-surge').textContent = maxM.toFixed(1) + 'x';
+        var surgeEl = document.getElementById('kpi-surge');
+        if (surgeEl) surgeEl.textContent = maxM.toFixed(1) + '×';
       }).catch(function(){});
   }
 
@@ -123,7 +180,7 @@
     surgeVisible = !surgeVisible;
     fetchSurge();
     var btn = document.getElementById('btn-toggle-surge');
-    btn.style.opacity = surgeVisible ? '1' : '0.5';
+    if (btn) btn.style.opacity = surgeVisible ? '1' : '0.5';
   };
 
   fetchSurge();

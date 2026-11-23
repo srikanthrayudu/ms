@@ -6,36 +6,77 @@
   <input type="hidden" data-bind="dropoffLng">
   <input type="hidden" id="promo-code-hidden" name="promo" value="">
 
-  <div style="margin-bottom:24px">
-    <h2>Where to{{if .UserName}}, {{.UserName}}{{end}}?</h2>
-    <p class="muted mt-4">Set your pickup and destination, choose your ride type, then request.</p>
+  <div style="margin-bottom:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h2 style="letter-spacing:-.03em;">Where to{{if .UserName}}, {{.UserName}}{{end}}?</h2>
+        <p class="muted mt-4">Select pickup &amp; dropoff via quick presets or tap the interactive map.</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="safety-badge privacy" style="font-size:11px;">🛡️ Hopr Privacy Shield</span>
+        <span class="safety-badge" style="font-size:11px;">🧩 WASM Engine Ready</span>
+      </div>
+    </div>
   </div>
 
-  <!-- Address inputs -->
-  <div class="address-row">
-    <div class="address-field">
-      <span class="addr-dot pickup"></span>
-      <input id="addr-pickup" placeholder="Pickup location" autocomplete="off" oninput="onAddrInput()">
+  <!-- Address inputs with Swap button -->
+  <div class="address-container">
+    <div class="address-row" style="margin-bottom:0;">
+      <div class="address-field">
+        <span class="addr-dot pickup"></span>
+        <input id="addr-pickup" placeholder="Pickup location (tap map or choose below)" autocomplete="off">
+        <button type="button" onclick="useCurrentLocation()" title="Use city center / current location" style="background:none;border:none;color:var(--green);cursor:pointer;font-size:14px;padding:2px 6px;">📍</button>
+      </div>
+      <div class="address-connector"></div>
+      <div class="address-field">
+        <span class="addr-dot dropoff"></span>
+        <input id="addr-dropoff" placeholder="Destination (tap map or choose below)" autocomplete="off">
+      </div>
     </div>
-    <div class="address-connector"></div>
-    <div class="address-field">
-      <span class="addr-dot dropoff"></span>
-      <input id="addr-dropoff" placeholder="Destination" autocomplete="off" oninput="onAddrInput()">
+    <button type="button" class="btn-swap" onclick="swapLocations()" title="Swap pickup and destination" aria-label="Swap locations">
+      ⇅
+    </button>
+  </div>
+
+  <!-- Quick Destination Preset Chips -->
+  <div style="margin-bottom:12px;">
+    <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">
+      Popular Destinations:
+    </div>
+    <div class="preset-scroll">
+      <button type="button" class="preset-chip" onclick="applyPreset('Times Square (Midtown)', 40.7580, -73.9855)">
+        <span>✨</span> Times Square
+      </button>
+      <button type="button" class="preset-chip" onclick="applyPreset('Central Park (Uptown)', 40.7829, -73.9654)">
+        <span>🌳</span> Central Park
+      </button>
+      <button type="button" class="preset-chip" onclick="applyPreset('Wall Street (Financial)', 40.7068, -74.0090)">
+        <span>🏛️</span> Wall Street
+      </button>
+      <button type="button" class="preset-chip" onclick="applyPreset('Brooklyn DUMBO Tech', 40.7033, -73.9881)">
+        <span>🌉</span> DUMBO Brooklyn
+      </button>
+      <button type="button" class="preset-chip" onclick="applyPreset('Penn Station', 40.7505, -73.9935)">
+        <span>🚆</span> Penn Station
+      </button>
+      <button type="button" class="preset-chip" onclick="applyPreset('JFK Airport Terminal 4', 40.6413, -73.7781)">
+        <span>✈️</span> JFK Airport
+      </button>
     </div>
   </div>
 
   <!-- Map toggle -->
   <div class="map-toggle">
     <button class="toggle-btn active-pickup" onclick="setPlace('pickup')" id="btn-pickup" type="button">
-      <span>🟢</span> Set pickup
+      <span>🟢</span> Set pickup point
     </button>
     <button class="toggle-btn" onclick="setPlace('dropoff')" id="btn-dropoff" type="button">
-      <span>🔵</span> Set destination
+      <span>🔵</span> Set destination point
     </button>
   </div>
 
   <div class="map-wrap">
-    <div class="map-instructions" id="map-hint">Tap to place your pickup point</div>
+    <div class="map-instructions" id="map-hint">Tap map to place pickup, or click a destination above</div>
     <div id="map" class="map"></div>
   </div>
 
@@ -43,28 +84,46 @@
   <div class="location-row">
     <div class="location-pill">
       <span class="loc-icon">🟢</span>
-      <div>
-        <span class="loc-label">Pickup</span>
-        <span class="loc-value" data-text="pickupLat ? pickupLat.toFixed(4)+', '+pickupLng.toFixed(4) : 'Not set'"></span>
+      <div style="overflow:hidden;">
+        <span class="loc-label">Pickup Point</span>
+        <span class="loc-value" id="disp-pickup" data-text="pickupLat ? pickupLat.toFixed(4)+', '+pickupLng.toFixed(4) : 'Not set (tap map)'"></span>
       </div>
     </div>
     <div class="location-pill">
       <span class="loc-icon">🔵</span>
-      <div>
+      <div style="overflow:hidden;">
         <span class="loc-label">Destination</span>
-        <span class="loc-value" data-text="dropoffLat ? dropoffLat.toFixed(4)+', '+dropoffLng.toFixed(4) : 'Not set'"></span>
+        <span class="loc-value" id="disp-dropoff" data-text="dropoffLat ? dropoffLat.toFixed(4)+', '+dropoffLng.toFixed(4) : 'Not set (tap map)'"></span>
       </div>
+    </div>
+  </div>
+
+  <!-- Route Details Card (shown when route exists) -->
+  <div id="route-summary" class="route-summary-card" style="display:none;">
+    <div class="route-stat-item">
+      <span>🛣️</span>
+      <span id="route-dist-text">0.0 km</span>
+    </div>
+    <div class="route-stat-item">
+      <span>⏱️</span>
+      <span id="route-duration-text">~0 mins</span>
+    </div>
+    <div class="traffic-pill">
+      <span>●</span> Smooth traffic
+    </div>
+    <div style="font-size:11px;color:var(--purple-l);">
+      🧩 WASM Sandbox
     </div>
   </div>
 
   <!-- Surge notice -->
   <div class="surge-notice" id="surge-notice">
-    🔥 <span><b>High Demand — Surge Active:</b> Fares are dynamically adjusted for real-time demand.</span>
+    🔥 <span><b>High Demand — Surge Active:</b> Dynamic multiplier active for this spatial zone.</span>
   </div>
 
   <!-- Ride type selector -->
   <div class="ride-type-section">
-    <span class="ride-type-label">Choose your ride</span>
+    <span class="ride-type-label">Choose Ride Tier</span>
     <div class="ride-type-grid" id="ride-type-grid">
       <div class="ride-type-card selected" data-type="SOLO" data-base="4" data-rate="1.20" onclick="selectRideType(this)">
         <span class="rtc-icon">🚗</span>
@@ -75,67 +134,68 @@
       <div class="ride-type-card" data-type="COMFORT" data-base="6" data-rate="1.80" onclick="selectRideType(this)">
         <span class="rtc-icon">🛋️</span>
         <span class="rtc-name">Comfort</span>
-        <span class="rtc-desc">Premium · extra leg room</span>
+        <span class="rtc-desc">Premium · extra space</span>
         <span class="rtc-price" id="price-COMFORT">—</span>
       </div>
       <div class="ride-type-card" data-type="XL" data-base="8" data-rate="2.20" onclick="selectRideType(this)">
         <span class="rtc-icon">🚐</span>
-        <span class="rtc-name">XL</span>
-        <span class="rtc-desc">Up to 6 passengers</span>
+        <span class="rtc-name">XL Fleet</span>
+        <span class="rtc-desc">Up to 6 seats</span>
         <span class="rtc-price" id="price-XL">—</span>
       </div>
       <div class="ride-type-card" data-type="POOL" data-base="4" data-rate="1.20" onclick="selectRideType(this)">
         <span class="rtc-icon">🤝</span>
-        <span class="rtc-name">Pool</span>
-        <span class="rtc-desc">Share · save up to 40%</span>
+        <span class="rtc-name">Hopr Pool</span>
+        <span class="rtc-desc">Carpool · Save 40%</span>
         <span class="rtc-price" id="price-POOL">—</span>
       </div>
     </div>
   </div>
 
-  <!-- Fare estimate -->
+  <!-- Fare estimate card -->
   <div class="fare-estimate-card" id="fare-estimate">
     <div>
-      <div class="fare-amount"><span class="currency">$</span><span id="fare-num">0</span></div>
-      <div class="fare-eta" id="fare-eta">— min away</div>
+      <div class="fare-amount"><span class="currency">$</span><span id="fare-num">0.00</span></div>
+      <div class="fare-eta" id="fare-eta">— min pickup</div>
     </div>
     <div class="fare-breakdown">
       <span class="fare-line" id="fare-line">Select pickup &amp; destination</span>
-      <small id="fare-sub"></small>
+      <small id="fare-sub">WASM sandbox rate calculator</small>
     </div>
-    <div>
+    <div style="text-align:right;">
       <span id="fare-surge-badge" class="fare-surge-badge" style="display:none">🔥 Surge</span>
+      <div style="margin-top:6px;font-size:11px;color:var(--muted);">Zero hidden fees</div>
     </div>
   </div>
 
   <!-- Pool hidden signal -->
   <input type="hidden" data-bind="pool" id="pool-signal-input">
 
-  <!-- Promo code -->
+  <!-- Promo code collapsible -->
   <div class="promo-section">
     <div class="promo-toggle" onclick="togglePromo()" id="promo-toggle">
-      <span>🏷️</span> Have a promo code?
+      <span>🏷️</span> Have a promo code? (Try: <b>SWIFT20</b>)
       <span id="promo-chevron" style="margin-left:auto;font-size:11px;">▼</span>
     </div>
     <div class="promo-body" id="promo-body">
       <div class="promo-input-row">
-        <input id="promo-input" placeholder="Enter code e.g. SWIFT20" oninput="this.value=this.value.toUpperCase()">
+        <input id="promo-input" placeholder="Enter promo code (e.g. SWIFT20)" oninput="this.value=this.value.toUpperCase()">
         <button class="btn ghost sm" type="button" onclick="applyPromo()">Apply</button>
       </div>
-      <div class="promo-applied" id="promo-applied">✅ Code applied — 20% off this trip!</div>
+      <div class="promo-applied" id="promo-applied">🎉 Code applied: 20% discount on fare!</div>
     </div>
   </div>
 
-  <!-- Safety badges -->
-  <div class="safety-row">
-    <span class="safety-badge">✅ Verified driver</span>
-    <span class="safety-badge">📍 Trip shared</span>
-    <span class="safety-badge privacy">🛡️ Private routing</span>
-    <span class="safety-badge privacy">🔒 Encrypted events</span>
+  <!-- Safety row -->
+  <div class="safety-row" style="margin-bottom:20px;">
+    <span class="safety-badge">✅ Verified Background Checks</span>
+    <span class="safety-badge">📍 Real-Time Location Sharing</span>
+    <span class="safety-badge privacy">🛡️ Hopr Anonymous IDs</span>
+    <span class="safety-badge privacy">🔒 End-to-End Encrypted</span>
   </div>
 
-  <button class="btn primary lg w-full" id="request-btn" data-on:click="@post('/api/rides')">
-    Request <span id="btn-ride-type">SwiftGo</span> →
+  <button class="btn primary lg w-full" id="request-btn" data-on:click="@post('/api/rides')" style="font-size:16px;box-shadow:var(--glow-p);">
+    Confirm &amp; Request <span id="btn-ride-type">SwiftGo</span> →
   </button>
   <div id="form-error"></div>
 </div>
@@ -151,14 +211,14 @@
   var place = 'pickup';
   var mPick = null, mDrop = null, routeLine = null;
   var distKm = 0, surgeMultiplier = 1.0;
-  var selectedCard = document.querySelector('.ride-type-card.selected');
+  var promoDiscount = 1.0;
 
-  var pickupIcon = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#10b981;border:2px solid #fff;box-shadow:0 0 10px rgba(16,185,129,.7)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
-  var dropIcon   = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#a78bfa;border:2px solid #fff;box-shadow:0 0 10px rgba(167,139,250,.7)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+  var pickupIcon = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#10b981;border:2px solid #fff;box-shadow:0 0 12px rgba(16,185,129,.9)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+  var dropIcon   = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#a78bfa;border:2px solid #fff;box-shadow:0 0 12px rgba(167,139,250,.9)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
 
   window.setPlace = function (p) {
     place = p;
-    var hints = { pickup: 'Tap to place your pickup point', dropoff: 'Tap to place your destination' };
+    var hints = { pickup: 'Tap map to place pickup point', dropoff: 'Tap map to place destination' };
     document.getElementById('map-hint').textContent = hints[p] || '';
     document.getElementById('btn-pickup').className  = 'toggle-btn' + (p === 'pickup'  ? ' active-pickup'  : '');
     document.getElementById('btn-dropoff').className = 'toggle-btn' + (p === 'dropoff' ? ' active-dropoff' : '');
@@ -183,24 +243,35 @@
     var base = parseFloat(card.dataset.base);
     var rate = parseFloat(card.dataset.rate);
     var type = card.dataset.type;
-    var fare = (base + rate * distKm) * surgeMultiplier;
+    var fare = (base + rate * distKm) * surgeMultiplier * promoDiscount;
     if (type === 'POOL') fare = fare * 0.60;
+
     var fareEl = document.getElementById('fare-num');
     var lineEl = document.getElementById('fare-line');
     var subEl  = document.getElementById('fare-sub');
     var etaEl  = document.getElementById('fare-eta');
     var surgeEl = document.getElementById('fare-surge-badge');
+
     fareEl.textContent = fare.toFixed(2);
-    lineEl.textContent = type + ' · ' + distKm.toFixed(1) + ' km · $' + (base + rate*distKm).toFixed(2) + ' base';
-    subEl.textContent = surgeMultiplier > 1 ? '× '+surgeMultiplier.toFixed(1)+' surge multiplier' : 'No surge active';
-    etaEl.textContent = Math.round(distKm * 2 + 2) + ' min ETA';
+    var miles = (distKm * 0.621371).toFixed(1);
+    lineEl.textContent = type + ' · ' + distKm.toFixed(1) + ' km (' + miles + ' mi) · $' + (base + rate*distKm).toFixed(2) + ' base';
+    subEl.textContent = surgeMultiplier > 1 ? 'Dynamic surge: ' + surgeMultiplier.toFixed(1) + '× active' : 'WASM sandbox fare calculation (zero CGO)';
+    etaEl.textContent = Math.round(distKm * 2 + 2) + ' min pickup';
     surgeEl.style.display = surgeMultiplier > 1 ? 'inline-flex' : 'none';
     document.getElementById('fare-estimate').classList.add('visible');
+
+    // Update Route Summary Card
+    var routeSummary = document.getElementById('route-summary');
+    if (routeSummary) {
+      routeSummary.style.display = 'flex';
+      document.getElementById('route-dist-text').textContent = distKm.toFixed(1) + ' km (' + miles + ' mi)';
+      document.getElementById('route-duration-text').textContent = '~' + Math.max(3, Math.round(distKm * 2.2)) + ' mins drive';
+    }
 
     // Update all card prices
     document.querySelectorAll('.ride-type-card').forEach(function(c) {
       var b = parseFloat(c.dataset.base), r = parseFloat(c.dataset.rate), t = c.dataset.type;
-      var f = (b + r * distKm) * surgeMultiplier;
+      var f = (b + r * distKm) * surgeMultiplier * promoDiscount;
       if (t === 'POOL') f = f * 0.60;
       var el = document.getElementById('price-' + t);
       if (el) el.textContent = '$' + f.toFixed(2);
@@ -212,7 +283,7 @@
     card.classList.add('selected');
     var isPool = card.dataset.type === 'POOL';
     setSig('pool', isPool ? 'true' : '');
-    var nameMap = {SOLO:'SwiftGo', COMFORT:'Comfort', XL:'XL', POOL:'Pool'};
+    var nameMap = {SOLO:'SwiftGo', COMFORT:'Comfort', XL:'XL Fleet', POOL:'Hopr Pool'};
     document.getElementById('btn-ride-type').textContent = nameMap[card.dataset.type] || card.dataset.type;
     updateFare();
   };
@@ -220,12 +291,71 @@
   function drawRoute() {
     if (!mPick || !mDrop) return;
     var pts = [mPick.getLatLng(), mDrop.getLatLng()];
-    if (routeLine) routeLine.setLatLngs(pts);
-    else routeLine = L.polyline(pts, { color: '#8b5cf6', weight: 3, dashArray: '7,9', opacity: .8 }).addTo(map);
+    if (routeLine) {
+      routeLine.setLatLngs(pts);
+    } else {
+      routeLine = L.polyline(pts, {
+        color: '#8b5cf6',
+        weight: 4,
+        dashArray: '8, 10',
+        opacity: 0.9
+      }).addTo(map);
+    }
     distKm = haversineKm(mPick.getLatLng().lat, mPick.getLatLng().lng, mDrop.getLatLng().lat, mDrop.getLatLng().lng);
     updateFare();
-    map.fitBounds(pts, { padding: [52, 52] });
+    map.fitBounds(pts, { padding: [56, 56] });
   }
+
+  window.applyPreset = function (name, lat, lng) {
+    if (!mPick) {
+      // Default pickup to city center if not set
+      var defLl = [DEF[0], DEF[1]];
+      mPick = L.marker(defLl, { icon: pickupIcon }).addTo(map).bindTooltip('Pickup');
+      setSig('pickupLat', DEF[0].toFixed(6));
+      setSig('pickupLng', DEF[1].toFixed(6));
+      document.getElementById('addr-pickup').value = 'City Center (Demo Pickup)';
+    }
+    var dropLl = [lat, lng];
+    if (mDrop) mDrop.setLatLng(dropLl);
+    else mDrop = L.marker(dropLl, { icon: dropIcon }).addTo(map).bindTooltip('Destination');
+
+    setSig('dropoffLat', lat.toFixed(6));
+    setSig('dropoffLng', lng.toFixed(6));
+    document.getElementById('addr-dropoff').value = name;
+    document.getElementById('map-hint').textContent = 'Route ready — select tier and request!';
+    drawRoute();
+  };
+
+  window.useCurrentLocation = function() {
+    var ll = [DEF[0], DEF[1]];
+    if (mPick) mPick.setLatLng(ll); else mPick = L.marker(ll, { icon: pickupIcon }).addTo(map);
+    setSig('pickupLat', DEF[0].toFixed(6));
+    setSig('pickupLng', DEF[1].toFixed(6));
+    document.getElementById('addr-pickup').value = 'Current Location (NYC)';
+    setPlace('dropoff');
+    if (mDrop) drawRoute();
+  };
+
+  window.swapLocations = function() {
+    if (!mPick && !mDrop) return;
+    var pInput = document.getElementById('addr-pickup');
+    var dInput = document.getElementById('addr-dropoff');
+    var tmpTxt = pInput.value;
+    pInput.value = dInput.value;
+    dInput.value = tmpTxt;
+
+    if (mPick && mDrop) {
+      var pLl = mPick.getLatLng();
+      var dLl = mDrop.getLatLng();
+      mPick.setLatLng(dLl);
+      mDrop.setLatLng(pLl);
+      setSig('pickupLat', dLl.lat.toFixed(6));
+      setSig('pickupLng', dLl.lng.toFixed(6));
+      setSig('dropoffLat', pLl.lat.toFixed(6));
+      setSig('dropoffLng', pLl.lng.toFixed(6));
+      drawRoute();
+    }
+  };
 
   map.on('click', function (e) {
     var lat = e.latlng.lat, lng = e.latlng.lng;
@@ -233,6 +363,7 @@
       if (mPick) mPick.setLatLng(e.latlng); else mPick = L.marker(e.latlng, { icon: pickupIcon }).addTo(map);
       setSig('pickupLat', lat.toFixed(6));
       setSig('pickupLng', lng.toFixed(6));
+      document.getElementById('addr-pickup').value = 'Pickup (' + lat.toFixed(4) + ', ' + lng.toFixed(4) + ')';
       setPlace('dropoff');
       fetch('/api/surge').then(function(r){return r.json();}).then(function(d){
         if (d.zones && d.zones.length > 0) {
@@ -245,12 +376,11 @@
       if (mDrop) mDrop.setLatLng(e.latlng); else mDrop = L.marker(e.latlng, { icon: dropIcon }).addTo(map);
       setSig('dropoffLat', lat.toFixed(6));
       setSig('dropoffLng', lng.toFixed(6));
-      document.getElementById('map-hint').textContent = 'Tap "Request" when ready';
+      document.getElementById('addr-dropoff').value = 'Destination (' + lat.toFixed(4) + ', ' + lng.toFixed(4) + ')';
+      document.getElementById('map-hint').textContent = 'Tap "Request" when ready!';
       drawRoute();
     }
   });
-
-  window.onAddrInput = function() {};  // address inputs are UX-only; map sets coords
 
   window.togglePromo = function() {
     var body = document.getElementById('promo-body');
@@ -263,10 +393,9 @@
     var code = document.getElementById('promo-input').value.trim();
     if (!code) return;
     document.getElementById('promo-code-hidden').value = code;
+    promoDiscount = 0.80;
     document.getElementById('promo-applied').style.display = 'block';
-    setTimeout(function() {
-      document.getElementById('fare-num').textContent = (parseFloat(document.getElementById('fare-num').textContent) * 0.80).toFixed(2);
-    }, 200);
+    updateFare();
   };
 })();
 </script>

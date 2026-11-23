@@ -11,8 +11,10 @@ import (
 	"github.com/starfederation/datastar-go/datastar"
 
 	"ms/api-gateway/internal/auth"
+	driverv1 "ms/proto/gen/driver/v1"
 	locationv1 "ms/proto/gen/location/v1"
 	ridev1 "ms/proto/gen/ride/v1"
+	userv1 "ms/proto/gen/user/v1"
 	"ms/shared/events"
 )
 
@@ -142,6 +144,31 @@ func (a *App) patchRideUI(sse *datastar.ServerSentEventGenerator, ride *ridev1.R
 		"driverId": ride.GetDriverId(),
 		"fare":     ride.GetFare(),
 	})
+
+	driverName := "Driver"
+	vehicle := "Standard Ride"
+	rating := 4.9
+	if ride.GetDriverId() != "" {
+		if drv, err := a.clients.Driver.GetDriver(context.Background(), &driverv1.GetDriverRequest{Id: ride.GetDriverId()}); err == nil {
+			if drv.GetRating() > 0 {
+				rating = drv.GetRating()
+			}
+			if drv.GetVehicleModel() != "" {
+				vehicle = fmt.Sprintf("%s · %s", drv.GetVehicleModel(), drv.GetVehiclePlate())
+			}
+		}
+		if u, err := a.clients.User.GetProfile(context.Background(), &userv1.GetProfileRequest{UserId: ride.GetDriverId()}); err == nil && u.GetName() != "" {
+			driverName = u.GetName()
+		} else {
+			id := ride.GetDriverId()
+			if len(id) > 6 {
+				id = id[:6]
+			}
+			driverName = "Driver #" + id
+		}
+	}
+	_ = sse.ExecuteScript(fmt.Sprintf("if (window.onRideStatusUpdate) window.onRideStatusUpdate(%q, %q, %q, %f, %f, %f)",
+		ride.GetStatus().String(), driverName, vehicle, ride.GetFare(), ride.GetSurgeMultiplier(), rating))
 }
 
 // renderRideStatusPanel returns the HTML for the #ride-status element.

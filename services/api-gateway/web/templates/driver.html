@@ -167,8 +167,14 @@
       hint.textContent = 'Trip complete — ready for next ride ✅';
       tripsToday++;
       if (fare) earningsToday += parseFloat(fare);
-      document.getElementById('trips-today').textContent = tripsToday;
-      document.getElementById('earnings-today').textContent = '$' + earningsToday.toFixed(2);
+      var trEl = document.getElementById('trips-today');
+      if (trEl) trEl.textContent = tripsToday;
+      var erEl = document.getElementById('earnings-today');
+      if (erEl) erEl.textContent = '$' + earningsToday.toFixed(2);
+      var erStat = document.querySelector('sw-trip-stat[data-id="earnings"]');
+      if (erStat) erStat.setAttribute('value', '$' + earningsToday.toFixed(2));
+      var trStat = document.querySelector('sw-trip-stat[data-id="trips"]');
+      if (trStat) trStat.setAttribute('value', String(tripsToday));
       if (mPick) { map.removeLayer(mPick); mPick = null; }
       if (mDrop) { map.removeLayer(mDrop); mDrop = null; }
       target = null;
