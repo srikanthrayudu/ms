@@ -689,3 +689,37 @@ code {
   padding: 2px 6px;
   color: var(--text2);
 }
+
+/* ─── Sleek Telemetry Markers & Smooth Motion ─────────────── */
+.leaflet-marker-icon.smooth-marker {
+  transition: transform 1.2s cubic-bezier(0.25, 1, 0.5, 1) !important;
+}
+
+.vehicle-marker-glow {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.radar-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid #818cf8;
+  animation: radar-pulse 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+  pointer-events: none;
+}
+
+.radar-ring.green {
+  border-color: #2ecc8c;
+  animation-duration: 2.4s;
+}
+
+@keyframes radar-pulse {
+  0% { transform: scale(0.6); opacity: 1; }
+  100% { transform: scale(2.4); opacity: 0; }
+}

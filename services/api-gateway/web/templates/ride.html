@@ -23,24 +23,51 @@
     maxZoom: 19, attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>'
   }).addTo(map);
 
-  var mPick = null, mDrop = null, mDriver = null;
+  var mPick = null, mDrop = null, mDriver = null, routeLine = null;
 
-  var pickupIcon = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#2ecc8c;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
-  var dropIcon   = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#6c8cff;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
-  var carIcon    = L.divIcon({ html: '<div style="font-size:22px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))">🚗</div>', className:'', iconSize:[26,26], iconAnchor:[13,13] });
+  var pickupIcon = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#2ecc8c;border:2px solid #fff;box-shadow:0 0 10px rgba(46,204,140,0.8)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+  var dropIcon   = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#6c8cff;border:2px solid #fff;box-shadow:0 0 10px rgba(108,140,255,0.8)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+  var carIcon    = L.divIcon({
+    html: '<div class="vehicle-marker-glow"><div class="radar-ring"></div><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#1e1b4b" stroke="#818cf8" stroke-width="2"/><path d="M12 6L16 16L12 14L8 16L12 6Z" fill="#a5b4fc"/></svg></div>',
+    className: 'smooth-marker',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16]
+  });
+
+  function refreshRoute() {
+    var pts = [];
+    if (mDriver) pts.push(mDriver.getLatLng());
+    if (mPick) pts.push(mPick.getLatLng());
+    if (mDrop) pts.push(mDrop.getLatLng());
+    if (pts.length >= 2) {
+      if (routeLine) {
+        routeLine.setLatLngs(pts);
+      } else {
+        routeLine = L.polyline(pts, {
+          color: '#818cf8',
+          weight: 3,
+          dashArray: '6, 8',
+          opacity: 0.85
+        }).addTo(map);
+      }
+    }
+  }
 
   window.placePickup = function (lat, lng) {
     var ll = [lat, lng];
     if (mPick) mPick.setLatLng(ll); else mPick = L.marker(ll, { icon: pickupIcon }).addTo(map).bindTooltip('Pickup');
+    refreshRoute();
     if (mDrop) map.fitBounds([ll, mDrop.getLatLng()], { padding: [52, 52] });
   };
   window.placeDropoff = function (lat, lng) {
     var ll = [lat, lng];
     if (mDrop) mDrop.setLatLng(ll); else mDrop = L.marker(ll, { icon: dropIcon }).addTo(map).bindTooltip('Destination');
+    refreshRoute();
   };
   window.moveDriverMarker = function (lat, lng) {
     var ll = [lat, lng];
     if (mDriver) { mDriver.setLatLng(ll); } else { mDriver = L.marker(ll, { icon: carIcon }).addTo(map).bindTooltip('Your driver'); }
+    refreshRoute();
   };
 })();
 </script>

@@ -94,6 +94,7 @@ Detailed documentation lives in `docs/`:
 | [`docs/runbook.md`](docs/runbook.md) | Setup, common tasks, env vars, troubleshooting |
 | [`docs/devops-and-wasm.md`](docs/devops-and-wasm.md) | DevOps course integration guide + WASM/wasmCloud possibilities |
 | [`docs/podman-desktop-k8s.md`](docs/podman-desktop-k8s.md) | Podman Desktop & Kubernetes walkthrough for DevOps demonstrations |
+| [`docs/portfolio-showcase.md`](docs/portfolio-showcase.md) | What to showcase in interviews: Jaeger traces, Grafana KPIs, Saga proofs |
 | [`docs/roadmap.md`](docs/roadmap.md) | Phase 1–4 learning roadmap with concrete implementation steps |
 
 ---
