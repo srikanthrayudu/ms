@@ -60,28 +60,14 @@
 
   <!-- Earnings cards -->
   <div class="driver-earnings-row">
-    <div class="stat-card">
-      <span class="stat-label">Today's earnings</span>
-      <span class="stat-value" id="earnings-today" style="color:var(--green)">$0.00</span>
-      <span class="stat-sub">updated live</span>
-    </div>
-    <div class="stat-card">
-      <span class="stat-label">Trips today</span>
-      <span class="stat-value" id="trips-today">0</span>
-      <span class="stat-sub">completed</span>
-    </div>
-    <div class="stat-card">
-      <span class="stat-label">Rating</span>
-      <span class="stat-value" style="color:var(--amber)">★ 4.9</span>
-      <span class="stat-sub">142 ratings</span>
-    </div>
+    <sw-trip-stat data-id="earnings" label="Today's earnings" value="$0.00" sub="updated live" accent="green"></sw-trip-stat>
+    <sw-trip-stat data-id="trips"    label="Trips today"      value="0"     sub="completed"   accent="purple"></sw-trip-stat>
+    <sw-trip-stat data-id="rating"   label="Rating"           value="★ 4.9" sub="142 ratings" accent="amber"></sw-trip-stat>
   </div>
 
   <!-- Safety badges -->
-  <div class="safety-row" style="margin-bottom:16px;">
-    <span class="safety-badge">✅ Verified driver</span>
-    <span class="safety-badge privacy">🛡️ Private routing</span>
-    <span class="safety-badge">🧩 WASM fare-engine</span>
+  <div style="margin-bottom:16px;">
+    <sw-safety-bar badges='[{"icon":"✅","label":"Verified driver"},{"icon":"🛡️","label":"Private routing","privacy":true},{"icon":"🧩","label":"WASM fare-engine","privacy":true}]'></sw-safety-bar>
   </div>
 
   <div id="driver-status"></div>

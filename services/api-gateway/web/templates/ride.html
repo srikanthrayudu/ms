@@ -8,7 +8,7 @@
   <!-- Driver arrival card (shown when matched) -->
   <div class="driver-arrival-card" id="driver-arrival-card">
     <div class="dac-top">
-      <div class="dac-avatar">🧑‍✈️</div>
+      <sw-driver-avatar initials="🧑‍✈️" id="driver-avatar-comp"></sw-driver-avatar>
       <div class="dac-info">
         <span class="dac-name" id="dac-driver-name">Finding driver…</span>
         <span class="dac-vehicle" id="dac-vehicle">Toyota Camry · NY-4821</span>
@@ -23,13 +23,7 @@
       </div>
     </div>
     <div class="dac-eta-row">
-      <div>
-        <div class="dac-eta-label">Arriving in</div>
-        <div>
-          <span class="dac-eta-value" id="eta-countdown">—</span>
-          <span class="dac-eta-unit"> min</span>
-        </div>
-      </div>
+      <sw-eta-counter id="eta-comp" minutes="5" status="REQUESTED"></sw-eta-counter>
       <div style="text-align:right">
         <div class="dac-eta-label">Status</div>
         <div id="dac-status-text" style="font-size:14px;font-weight:600;color:var(--amber);">Matching…</div>
@@ -53,11 +47,15 @@
     <div id="map" class="map"></div>
   </div>
 
+  <!-- Rocket surge pill + fare meter (shown after MATCHED) -->
+  <div id="rocket-ride-stats" style="display:none;gap:16px;align-items:center;margin-top:12px;margin-bottom:4px;flex-wrap:wrap;">
+    <sw-surge-pill id="surge-pill-comp" multiplier="1.0" visible=""></sw-surge-pill>
+    <sw-fare-meter id="fare-meter-comp" amount="0" label="Live fare estimate"></sw-fare-meter>
+  </div>
+
   <!-- Safety row -->
   <div class="safety-row" style="margin-top:16px;">
-    <span class="safety-badge">📍 Trip being tracked</span>
-    <span class="safety-badge privacy">🛡️ Private routing active</span>
-    <span class="safety-badge privacy">🔒 Encrypted stream</span>
+    <sw-safety-bar></sw-safety-bar>
   </div>
 
   <!-- Rating widget (appears on completion) -->
@@ -82,11 +80,7 @@
     <h3>Rate your trip</h3>
     <p>How was your experience with <span id="rating-driver-name">your driver</span>?</p>
     <div class="rating-stars" id="rating-stars">
-      <span class="star" onclick="rateStar(1)" data-star="1">⭐</span>
-      <span class="star" onclick="rateStar(2)" data-star="2">⭐</span>
-      <span class="star" onclick="rateStar(3)" data-star="3">⭐</span>
-      <span class="star" onclick="rateStar(4)" data-star="4">⭐</span>
-      <span class="star" onclick="rateStar(5)" data-star="5">⭐</span>
+      <sw-star-rating id="star-rating-comp" value="0"></sw-star-rating>
     </div>
     <div class="rating-comment">
       <textarea placeholder="Leave a comment (optional)…" rows="2" style="width:100%;resize:vertical;"></textarea>

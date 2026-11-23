@@ -904,3 +904,68 @@ input::placeholder { color: var(--muted2); }
 
 /* sub text alias */
 p.sub { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+
+/* ─── Backend-rendered HTML styles ───────────────────────── */
+/* ride-card (from renderDriverRidePanel) */
+.ride-card {
+  background: var(--panel); border: 1px solid var(--border2);
+  border-radius: var(--radius); padding: 18px 20px;
+  margin-bottom: 16px; animation: slide-up .25s ease;
+}
+.ride-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.ride-card-header h3 { font-size: 14px; font-weight: 700; color: var(--text); }
+.coords {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--muted); font-family: monospace;
+  margin-bottom: 4px;
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot-green  { background: var(--green); }
+.dot-indigo { background: var(--purple-l); }
+.controls { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.fare {
+  font-size: 1.3rem; font-weight: 900; color: var(--green);
+  margin-top: 10px;
+}
+
+/* payment-table */
+.payment-table {
+  width: 100%; border-collapse: collapse; font-size: 14px;
+}
+.payment-table th {
+  text-align: left; padding: 8px 10px 10px;
+  font-size: 11px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .07em;
+  border-bottom: 1px solid var(--border);
+}
+.payment-table td {
+  padding: 11px 10px; border-bottom: 1px solid var(--border);
+  color: var(--text2); vertical-align: middle;
+}
+.payment-table tr:last-child td { border-bottom: none; }
+.payment-table tr:hover td { background: rgba(139,92,246,.04); }
+.payment-table code { font-size: 12px; color: var(--muted); }
+.payment-table .money { font-weight: 700; color: var(--purple-l); }
+.chip {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px; border-radius: 100px;
+  font-size: 12px; font-weight: 600;
+}
+.chip-green  { background: rgba(16,185,129,.12); color: #6ee7b7; border: 1px solid rgba(16,185,129,.2); }
+.chip-amber  { background: rgba(245,158,11,.12);  color: #fcd34d; border: 1px solid rgba(245,158,11,.2); }
+.chip-red    { background: rgba(239,68,68,.1);   color: #fca5a5; border: 1px solid rgba(239,68,68,.2); }
+.total-badge {
+  display: flex; flex-direction: column; align-items: flex-end;
+  font-size: 13px; color: var(--muted);
+}
+.total-badge strong { font-size: 1.2rem; color: var(--green); font-weight: 800; }
+
+/* form error */
+.error, .status.error {
+  padding: 10px 14px;
+  background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.2);
+  border-radius: var(--radius-sm); color: #fca5a5; font-size: 13px;
+}
