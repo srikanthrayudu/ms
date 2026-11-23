@@ -1,0 +1,875 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rideshare
+  labels:
+    app.kubernetes.io/name: rideshare
+    app.kubernetes.io/part-of: rideshare-platform
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rideshare-config
+  namespace: rideshare
+data:
+  LOG_LEVEL: "info"
+  NATS_URL: "nats://nats:4222"
+  LOCATION_SERVICE_ADDR: "location-service:50053"
+  DRIVER_SERVICE_ADDR: "driver-service:50052"
+  USER_SERVICE_ADDR: "user-service:50051"
+  RIDE_SERVICE_ADDR: "ride-service:50054"
+  PAYMENT_SERVICE_ADDR: "payment-service:50055"
+  NOTIFICATION_SERVICE_ADDR: "notification-service:50056"
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rideshare-secrets
+  namespace: rideshare
+type: Opaque
+stringData:
+  # In production, replace with a securely generated secret key (>= 16 characters)
+  JWT_SECRET: "rideshare-production-super-secret-key-32chars!"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nats
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: nats
+    app.kubernetes.io/component: broker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nats
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nats
+    spec:
+      containers:
+        - name: nats
+          image: nats:2-alpine
+          args: ["-p", "4222", "-m", "8222"]
+          ports:
+            - name: client
+              containerPort: 4222
+            - name: monitor
+              containerPort: 8222
+          livenessProbe:
+            httpGet:
+              path: /varz
+              port: 8222
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /varz
+              port: 8222
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: nats
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nats
+  ports:
+    - name: client
+      port: 4222
+      targetPort: 4222
+    - name: monitor
+      port: 8222
+      targetPort: 8222
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: user-service
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: user-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: user-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: user-service
+          image: rideshare/user-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 50051
+          env:
+            - name: GRPC_ADDR
+              value: ":50051"
+            - name: DB_PATH
+              value: "/app/data/user-service.db"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: LOG_LEVEL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: rideshare-secrets
+                  key: JWT_SECRET
+          livenessProbe:
+            grpc:
+              port: 50051
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            grpc:
+              port: 50051
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: user-service
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: user-service
+  ports:
+    - name: grpc
+      port: 50051
+      targetPort: 50051
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: driver-service
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: driver-service
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: driver-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: driver-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: driver-service
+          image: rideshare/driver-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 50052
+          env:
+            - name: GRPC_ADDR
+              value: ":50052"
+            - name: DB_PATH
+              value: "/app/data/driver-service.db"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: LOG_LEVEL
+          livenessProbe:
+            grpc:
+              port: 50052
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            grpc:
+              port: 50052
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: driver-service
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: driver-service
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: driver-service
+  ports:
+    - name: grpc
+      port: 50052
+      targetPort: 50052
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: location-service
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: location-service
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: location-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: location-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: location-service
+          image: rideshare/location-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 50053
+          env:
+            - name: GRPC_ADDR
+              value: ":50053"
+            - name: DB_PATH
+              value: "/app/data/location-service.db"
+            - name: NATS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: NATS_URL
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: LOG_LEVEL
+          livenessProbe:
+            grpc:
+              port: 50053
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            grpc:
+              port: 50053
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: location-service
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: location-service
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: location-service
+  ports:
+    - name: grpc
+      port: 50053
+      targetPort: 50053
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ride-service
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: ride-service
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ride-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ride-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: ride-service
+          image: rideshare/ride-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 50054
+          env:
+            - name: GRPC_ADDR
+              value: ":50054"
+            - name: DB_PATH
+              value: "/app/data/ride-service.db"
+            - name: NATS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: NATS_URL
+            - name: LOCATION_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: LOCATION_SERVICE_ADDR
+            - name: DRIVER_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: DRIVER_SERVICE_ADDR
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: LOG_LEVEL
+          livenessProbe:
+            grpc:
+              port: 50054
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            grpc:
+              port: 50054
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ride-service
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: ride-service
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ride-service
+  ports:
+    - name: grpc
+      port: 50054
+      targetPort: 50054
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: payment-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: payment-service
+          image: rideshare/payment-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 50055
+          env:
+            - name: GRPC_ADDR
+              value: ":50055"
+            - name: DB_PATH
+              value: "/app/data/payment-service.db"
+            - name: NATS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: NATS_URL
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: LOG_LEVEL
+          livenessProbe:
+            grpc:
+              port: 50055
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            grpc:
+              port: 50055
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: payment-service
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: payment-service
+  ports:
+    - name: grpc
+      port: 50055
+      targetPort: 50055
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: notification-service
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: notification-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: notification-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: notification-service
+          image: rideshare/notification-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 50056
+          env:
+            - name: GRPC_ADDR
+              value: ":50056"
+            - name: DB_PATH
+              value: "/app/data/notification-service.db"
+            - name: NATS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: NATS_URL
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: LOG_LEVEL
+          livenessProbe:
+            grpc:
+              port: 50056
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            grpc:
+              port: 50056
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: notification-service
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: notification-service
+  ports:
+    - name: grpc
+      port: 50056
+      targetPort: 50056
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/component: gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: api-gateway
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: api-gateway
+          image: rideshare/api-gateway:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: HTTP_ADDR
+              value: ":8080"
+            - name: USER_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: USER_SERVICE_ADDR
+            - name: DRIVER_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: DRIVER_SERVICE_ADDR
+            - name: LOCATION_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: LOCATION_SERVICE_ADDR
+            - name: RIDE_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: RIDE_SERVICE_ADDR
+            - name: PAYMENT_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: PAYMENT_SERVICE_ADDR
+            - name: NOTIFICATION_SERVICE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: NOTIFICATION_SERVICE_ADDR
+            - name: NATS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: NATS_URL
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: rideshare-config
+                  key: LOG_LEVEL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: rideshare-secrets
+                  key: JWT_SECRET
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: api-gateway
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: api-gateway
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rideshare-ingress
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: rideshare-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: rideshare
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    scrape_configs:
+      - job_name: 'nats'
+        static_configs:
+          - targets: ['nats:8222']
+        metrics_path: /metrics
+      - job_name: 'api-gateway'
+        static_configs:
+          - targets: ['api-gateway:8080']
+        metrics_path: /metrics
+      - job_name: 'user-service'
+        static_configs:
+          - targets: ['user-service:9090']
+        metrics_path: /metrics
+      - job_name: 'driver-service'
+        static_configs:
+          - targets: ['driver-service:9091']
+        metrics_path: /metrics
+      - job_name: 'location-service'
+        static_configs:
+          - targets: ['location-service:9092']
+        metrics_path: /metrics
+      - job_name: 'ride-service'
+        static_configs:
+          - targets: ['ride-service:9093']
+        metrics_path: /metrics
+      - job_name: 'payment-service'
+        static_configs:
+          - targets: ['payment-service:9094']
+        metrics_path: /metrics
+      - job_name: 'notification-service'
+        static_configs:
+          - targets: ['notification-service:9095']
+        metrics_path: /metrics
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.54.1
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+          ports:
+            - name: web
+              containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: prometheus
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: prometheus
+  ports:
+    - name: web
+      port: 9090
+      targetPort: 9090
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: jaeger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: jaeger
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: jaeger
+    spec:
+      containers:
+        - name: jaeger
+          image: jaegertracing/all-in-one:1.60
+          ports:
+            - name: ui
+              containerPort: 16686
+            - name: otlp-grpc
+              containerPort: 4317
+            - name: otlp-http
+              containerPort: 4318
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: jaeger
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: jaeger
+  ports:
+    - name: ui
+      port: 16686
+      targetPort: 16686
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318

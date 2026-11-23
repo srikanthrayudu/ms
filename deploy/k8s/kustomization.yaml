@@ -16,3 +16,4 @@ resources:
   - notification-service.yaml
   - api-gateway.yaml
   - ingress.yaml
+  - observability.yaml

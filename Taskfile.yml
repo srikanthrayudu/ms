@@ -262,3 +262,43 @@ tasks:
     desc: Show status of pods, services and ingresses in namespace 'rideshare'
     cmds:
       - kubectl -n rideshare get pods,svc,ingress
+
+  # ─────────────────────────────────────────────
+  # Podman & Podman Desktop Kubernetes Integration
+  # ─────────────────────────────────────────────
+  podman:build:
+    desc: Build all 7 microservices images using Podman
+    cmds:
+      - task: docker:build
+
+  podman:play:
+    desc: Run the full Kubernetes stack in Podman Desktop via 'podman play kube'
+    cmds:
+      - podman play kube {{.ROOT_DIR}}/deploy/k8s/rideshare-stack.yaml
+      - echo "  🚀 Stack running in Podman Desktop! Check the Pods tab in Podman Desktop UI."
+      - echo "  🌐 Web Gateway → http://localhost:8080"
+
+  podman:down:
+    desc: Stop and clean up the Podman play kube stack
+    cmds:
+      - podman play kube --down {{.ROOT_DIR}}/deploy/k8s/rideshare-stack.yaml
+      - echo "  🛑 Podman stack stopped and cleaned up"
+
+  podman:status:
+    desc: List all active Podman pods and containers
+    cmds:
+      - podman pod ps
+
+  k8s:kind:load:
+    desc: Load all local microservice images into a Podman Desktop Kind cluster
+    cmds:
+      - for:
+          - user-service
+          - driver-service
+          - location-service
+          - ride-service
+          - payment-service
+          - notification-service
+          - api-gateway
+        cmd: kind load docker-image rideshare/{{.ITEM}}:latest || podman image save rideshare/{{.ITEM}}:latest | kind load image-archive /dev/stdin
+      - echo "  📦 All 7 microservices loaded into Kind cluster!"

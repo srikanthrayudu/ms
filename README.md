@@ -93,6 +93,7 @@ Detailed documentation lives in `docs/`:
 | [`docs/api-reference.md`](docs/api-reference.md) | Every HTTP + gRPC + NATS endpoint |
 | [`docs/runbook.md`](docs/runbook.md) | Setup, common tasks, env vars, troubleshooting |
 | [`docs/devops-and-wasm.md`](docs/devops-and-wasm.md) | DevOps course integration guide + WASM/wasmCloud possibilities |
+| [`docs/podman-desktop-k8s.md`](docs/podman-desktop-k8s.md) | Podman Desktop & Kubernetes walkthrough for DevOps demonstrations |
 | [`docs/roadmap.md`](docs/roadmap.md) | Phase 1–4 learning roadmap with concrete implementation steps |
 
 ---
@@ -111,7 +112,29 @@ task logs     # tail all service logs
 task down     # stop everything
 ```
 
-### Running with Docker Compose or Podman
+### Running with Podman Desktop & Kubernetes
+
+Podman Desktop provides two ways to run and inspect the platform:
+
+1. **Native Podman Kube (no heavy cluster required)**:
+   ```bash
+   task podman:build   # build distroless images (< 22 MB each)
+   task podman:play    # play full Kubernetes stack natively in Podman
+   ```
+   Or in Podman Desktop UI: Go to **Pods** → click **Play Kubernetes YAML** → choose `deploy/k8s/rideshare-stack.yaml`.
+
+2. **Full Kubernetes Cluster (Kind in Podman Desktop)**:
+   - Create a Kind cluster in Podman Desktop (**Settings** → **Resources** → **Kind**).
+   - Load images and deploy:
+     ```bash
+     task k8s:kind:load
+     task k8s:apply
+     ```
+   - Inspect Deployments, Pods, Services, and gRPC health probes directly in Podman Desktop's **Kubernetes** tab.
+
+See [`docs/podman-desktop-k8s.md`](docs/podman-desktop-k8s.md) for full demonstration steps.
+
+### Running with Docker Compose or Podman Compose
 
 ```bash
 task docker:build   # build all multi-stage distroless images
