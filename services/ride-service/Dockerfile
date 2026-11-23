@@ -11,6 +11,9 @@ COPY proto/ ./proto/
 COPY shared/ ./shared/
 COPY services/ride-service/ ./services/ride-service/
 
+# Copy the prebuilt WASM fare-engine binary (built by `task wasm:build`)
+COPY wasm/fare-engine/fare-engine.wasm ./wasm/fare-engine/fare-engine.wasm
+
 # Initialize workspace for only the required modules
 RUN go work init ./proto ./shared ./services/ride-service
 
@@ -25,8 +28,14 @@ WORKDIR /app
 
 COPY --from=builder --chown=65532:65532 /app/data /app/data
 COPY --from=builder /bin/ride-service /app/ride-service
+# Embed the WASM fare-engine binary at the default engine path.
+# Can be overridden by mounting a Kubernetes ConfigMap at /app/wasm/
+# for zero-restart hot-reload of pricing logic.
+COPY --from=builder /app/wasm/fare-engine/fare-engine.wasm /app/wasm/fare-engine.wasm
 
 USER nonroot:nonroot
+
+ENV WASM_FARE_ENGINE_PATH=/app/wasm/fare-engine.wasm
 
 EXPOSE 50054
 

@@ -52,6 +52,8 @@ spec:
                 configMapKeyRef:
                   name: rideshare-config
                   key: LOG_LEVEL
+            - name: WASM_FARE_ENGINE_PATH
+              value: "/app/wasm/fare-engine.wasm"
           livenessProbe:
             grpc:
               port: 50054
@@ -72,9 +74,16 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /app/data
+            - name: fare-engine-wasm
+              mountPath: /app/wasm
+              readOnly: true
       volumes:
         - name: data
           emptyDir: {}
+        - name: fare-engine-wasm
+          configMap:
+            name: fare-engine-wasm
+            optional: true   # pod starts even if ConfigMap absent; uses embedded .wasm
 ---
 apiVersion: v1
 kind: Service

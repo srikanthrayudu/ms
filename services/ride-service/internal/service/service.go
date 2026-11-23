@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"os"
 	"sort"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"ms/shared/events"
 	"ms/shared/geo"
 	"ms/shared/resilience"
+	"ms/shared/wasmengine"
 	"ms/ride-service/internal/store"
 )
 
@@ -30,6 +32,10 @@ const (
 	poolMaxRiders     = 3    // seats per pool trip
 	poolJoinRadiusM   = 1500 // how close a passenger's pickup must be to join a pool
 )
+
+// defaultWasmPath is the path to the fare-engine WASM binary inside the container.
+// Can be overridden by the WASM_FARE_ENGINE_PATH environment variable.
+const defaultWasmPath = "/app/wasm/fare-engine.wasm"
 
 // Server implements ridev1.RideServiceServer.
 type Server struct {
@@ -41,10 +47,11 @@ type Server struct {
 	log            *slog.Logger
 	surge          *geo.SurgeEngine
 	locker         resilience.Locker
+	wasmEngine     *wasmengine.Engine // nil when .wasm file is absent (graceful fallback)
 }
 
 func New(repo *store.Store, loc locationv1.LocationServiceClient, drv driverv1.DriverServiceClient, nc *nats.Conn, log *slog.Logger) *Server {
-	return &Server{
+	s := &Server{
 		repo:           repo,
 		locationClient: loc,
 		driverClient:   drv,
@@ -53,6 +60,74 @@ func New(repo *store.Store, loc locationv1.LocationServiceClient, drv driverv1.D
 		surge:          geo.NewSurgeEngine(90 * time.Second),
 		locker:         resilience.NewMemoryLocker(),
 	}
+
+	// Boot the WASM fare engine if the binary is present.
+	wasmPath := os.Getenv("WASM_FARE_ENGINE_PATH")
+	if wasmPath == "" {
+		wasmPath = defaultWasmPath
+	}
+	if _, err := os.Stat(wasmPath); err == nil {
+		ctx := context.Background()
+		engine, err := wasmengine.New(ctx, wasmPath)
+		if err != nil {
+			log.Warn("wasm fare engine failed to load — using fallback Go pricing", "path", wasmPath, "err", err)
+		} else {
+			s.wasmEngine = engine
+			log.Info("wasm fare engine loaded", "path", wasmPath)
+			// Background hot-reload: check for .wasm file updates every 30s.
+			go func() {
+				ticker := time.NewTicker(30 * time.Second)
+				defer ticker.Stop()
+				for range ticker.C {
+					if reloaded, err := engine.Reload(context.Background()); err != nil {
+						log.Warn("wasm reload error", "err", err)
+					} else if reloaded {
+						log.Info("wasm fare engine hot-reloaded", "path", wasmPath)
+					}
+				}
+			}()
+		}
+	} else {
+		log.Info("wasm fare engine not found — using Go pricing fallback", "path", wasmPath)
+	}
+
+	return s
+}
+
+// calcSoloFare computes the solo fare using the WASM engine when available,
+// falling back to the native Go implementation on error or absence.
+func (s *Server) calcSoloFare(ctx context.Context, distanceMeters, surge float64) float64 {
+	if s.wasmEngine != nil {
+		resp, err := s.wasmEngine.Calculate(ctx, wasmengine.FareRequest{
+			DistanceMeters:  distanceMeters,
+			Riders:          1,
+			SurgeMultiplier: surge,
+			RideType:        "SOLO",
+		})
+		if err == nil {
+			return resp.TotalFare
+		}
+		s.log.Warn("wasm calculate failed — fallback to Go pricing", "err", err)
+	}
+	return geo.SoloFareWithSurge(distanceMeters, surge)
+}
+
+// calcPoolFare computes the per-rider pool fare using the WASM engine when available,
+// falling back to the native Go implementation on error or absence.
+func (s *Server) calcPoolFare(ctx context.Context, distanceMeters float64, riders int, surge float64) float64 {
+	if s.wasmEngine != nil {
+		resp, err := s.wasmEngine.Calculate(ctx, wasmengine.FareRequest{
+			DistanceMeters:  distanceMeters,
+			Riders:          riders,
+			SurgeMultiplier: surge,
+			RideType:        "POOL",
+		})
+		if err == nil {
+			return resp.PerRider
+		}
+		s.log.Warn("wasm calculate failed — fallback to Go pricing", "err", err)
+	}
+	return geo.PoolFareWithSurge(distanceMeters, riders, surge)
 }
 
 func newID() string {
@@ -116,7 +191,7 @@ func (s *Server) RequestRide(ctx context.Context, req *ridev1.RequestRideRequest
 
 	// For pool trips, also insert the first rider row.
 	if rideType == store.RideTypePool {
-		fareShare := geo.PoolFare(distance, 1) // alone for now; recalculated as riders join
+		fareShare := geo.PoolFare(distance, 1) // alone for now; recalculated as riders join (no surge yet, solo seat)
 		_ = s.repo.AddRider(ctx, &store.Rider{
 			RideID:      r.ID,
 			PassengerID: req.GetPassengerId(),
@@ -174,7 +249,7 @@ func (s *Server) tryJoinPool(ctx context.Context, req *ridev1.RequestRideRequest
 	r.RiderCount++
 
 	// Add this passenger as a rider.
-	fareShare := geo.PoolFare(distanceMeters, r.RiderCount)
+	fareShare := s.calcPoolFare(ctx, distanceMeters, r.RiderCount, r.SurgeMultiplier)
 	rider := &store.Rider{
 		RideID:      r.ID,
 		PassengerID: req.GetPassengerId(),
@@ -238,7 +313,7 @@ func (s *Server) UpdateRideStatus(ctx context.Context, req *ridev1.UpdateRideSta
 	if st == ridev1.RideStatus_COMPLETED {
 		if r.RideType == store.RideTypePool {
 			// Pool fare: total = per-rider fare × rider count (factoring surge multiplier).
-			perRider := geo.PoolFareWithSurge(r.DistanceMeters, r.RiderCount, r.SurgeMultiplier)
+			perRider := s.calcPoolFare(ctx, r.DistanceMeters, r.RiderCount, r.SurgeMultiplier)
 			r.Fare = perRider * float64(r.RiderCount)
 			_ = s.repo.UpdateRiderFares(ctx, r.ID, perRider)
 			// Mark all pending/on-board riders as dropped.
@@ -250,7 +325,7 @@ func (s *Server) UpdateRideStatus(ctx context.Context, req *ridev1.UpdateRideSta
 				}
 			}
 		} else {
-			r.Fare = geo.SoloFareWithSurge(r.DistanceMeters, r.SurgeMultiplier)
+			r.Fare = s.calcSoloFare(ctx, r.DistanceMeters, r.SurgeMultiplier)
 		}
 		r.CompletedAt = time.Now().Unix()
 	}

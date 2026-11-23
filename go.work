@@ -1,4 +1,4 @@
-go 1.26.0
+go 1.27.3
 
 use (
 	./proto
@@ -11,4 +11,5 @@ use (
 	./services/simulator
 	./services/user-service
 	./shared
+	./wasm/fare-engine
 )

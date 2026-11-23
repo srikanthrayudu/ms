@@ -1,0 +1,23 @@
+# fare-engine-wasm ConfigMap
+#
+# This ConfigMap is populated by `task wasm:reload` and mounted into the
+# ride-service pod at /app/wasm/fare-engine.wasm.
+#
+# Hot-reload workflow:
+#   1. Edit pricing logic in wasm/fare-engine/main.go
+#   2. Run:  task wasm:reload
+#   3. Kubernetes propagates the new binary to the running pod volume
+#   4. ride-service's background goroutine detects the mtime change and
+#      recompiles the WASM module in-process within 30 seconds
+#   5. No pod restart needed!
+#
+# Initially empty — populated by `task wasm:reload`.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fare-engine-wasm
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/component: wasm
+    app.kubernetes.io/part-of: rideshare
+binaryData: {}

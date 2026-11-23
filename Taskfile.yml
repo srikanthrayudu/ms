@@ -459,3 +459,38 @@ tasks:
     desc: Run the autonomous fleet and rider traffic simulation generator
     cmds:
       - cd {{.ROOT_DIR}}/services/simulator && go run ./cmd/simulator -drivers 20 -interval 3
+
+  # ─────────────────────────────────────────────
+  # WebAssembly Fare Engine
+  # ─────────────────────────────────────────────
+  wasm:build:
+    desc: "Compile the WASM fare-engine from Go source (WASI target, CGO-free)"
+    cmds:
+      - |
+        cd {{.ROOT_DIR}}/wasm/fare-engine
+        GOWORK=off GOOS=wasip1 GOARCH=wasm go build -o fare-engine.wasm .
+        echo "  🧩 fare-engine.wasm built ($(du -sh {{.ROOT_DIR}}/wasm/fare-engine/fare-engine.wasm | cut -f1))"
+
+  wasm:test:
+    desc: "Test WASM fare-engine with wasmtime (3 pricing scenarios)"
+    deps: [wasm:build]
+    cmds:
+      - |
+        WASMTIME=$(which wasmtime 2>/dev/null || echo "$HOME/.wasmtime/bin/wasmtime")
+        WASM={{.ROOT_DIR}}/wasm/fare-engine/fare-engine.wasm
+        echo "── 1. Solo 10 km, surge 1.0x ──────────────────────────"
+        echo '{"distance_meters":10000,"riders":1,"surge":1.0,"ride_type":"SOLO"}' | $WASMTIME $WASM
+        echo "── 2. Pool 10 km, 2 riders, surge 1.8x ─────────────────"
+        echo '{"distance_meters":10000,"riders":2,"surge":1.8,"ride_type":"POOL"}' | $WASMTIME $WASM
+        echo "── 3. Solo 5 km, surge 2.5x (cap) ──────────────────────"
+        echo '{"distance_meters":5000,"riders":1,"surge":2.5,"ride_type":"SOLO"}' | $WASMTIME $WASM
+
+  wasm:reload:
+    desc: "Hot-reload WASM fare-engine into the ride-service ConfigMap (zero restart)"
+    cmds:
+      - task: wasm:build
+      - |
+        kubectl -n rideshare create configmap fare-engine-wasm \
+          --from-file=fare-engine.wasm={{.ROOT_DIR}}/wasm/fare-engine/fare-engine.wasm \
+          --dry-run=client -o yaml | kubectl apply -f -
+        echo "  🔄 fare-engine.wasm hot-reloaded → ride-service picks it up within 30 s"

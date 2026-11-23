@@ -13,6 +13,7 @@ resources:
   - driver-service.yaml
   - location-service.yaml
   - ride-service.yaml
+  - wasm-configmap.yaml
   - payment-service.yaml
   - notification-service.yaml
   - api-gateway.yaml
