@@ -250,14 +250,45 @@ tasks:
   # ─────────────────────────────────────────────
   # Kubernetes
   # ─────────────────────────────────────────────
-  k8s:deploy:
-    desc: Complete end-to-end deployment (build, load to Kind, apply manifests, and rollout)
+  k8s:up:
+    desc: "Alias for k8s:deploy (complete end-to-end Kubernetes deployment from scratch)"
     cmds:
+      - task: k8s:deploy
+
+  k8s:deploy:
+    desc: Complete end-to-end deployment from scratch (build, load to Kind, apply, wait, smoke-test, and report)
+    cmds:
+      - |
+        echo "================================================================="
+        echo "🚀 STARTING COMPLETE END-TO-END KUBERNETES DEPLOYMENT"
+        echo "================================================================="
+      - task: k8s:context
       - task: podman:build
       - task: k8s:kind:load
       - task: k8s:apply
       - task: k8s:restart
+      - |
+        echo "⏳ Waiting for microservice deployments to become Ready..."
+        kubectl -n rideshare rollout status deployment/api-gateway --timeout=60s
+        kubectl -n rideshare rollout status deployment/ride-service --timeout=60s
+        kubectl -n rideshare rollout status deployment/location-service --timeout=60s
+        echo "  ✅ Core deployments are Ready!"
+      - task: k8s:smoke-test
       - task: k8s:status
+      - |
+        PORT=$(podman port {{.KIND_CLUSTER}}-control-plane 80/tcp 2>/dev/null | cut -d: -f2 | head -n1)
+        PORT=${PORT:-9093}
+        echo ""
+        echo "================================================================="
+        echo "🎉 RIDESHARE PLATFORM FULLY DEPLOYED & VERIFIED IN KUBERNETES!"
+        echo "================================================================="
+        echo "  🌐 Web Application:          http://localhost:${PORT}"
+        echo "  🎛️  Operations Command Center: http://localhost:${PORT}/ops"
+        echo "  📈 Prometheus Observability:  task k8s:forward:obs  (http://localhost:9090)"
+        echo "  🔍 Jaeger Distributed Traces: task k8s:forward:obs  (http://localhost:16686)"
+        echo "  🚗 Run Traffic Simulator:     task simulate"
+        echo "================================================================="
+        echo ""
 
   k8s:apply:
     desc: Deploy all resources to Kubernetes via Kustomize
@@ -368,7 +399,11 @@ tasks:
           else
             kind load docker-image docker.io/rideshare/{{.ITEM}}:latest --name {{.KIND_CLUSTER}} || kind load docker-image rideshare/{{.ITEM}}:latest --name {{.KIND_CLUSTER}}
           fi
-      - echo "  📦 All 7 microservices loaded into Kind cluster '{{.KIND_CLUSTER}}'!"
+      - |
+        if ! podman exec {{.KIND_CLUSTER}}-control-plane crictl images 2>/dev/null | grep -q "docker.io/library/alpine"; then
+          podman image save docker.io/library/alpine:latest 2>/dev/null | kind load image-archive /dev/stdin --name {{.KIND_CLUSTER}} || true
+        fi
+      - echo "  📦 All 7 microservices + base images loaded into Kind cluster '{{.KIND_CLUSTER}}'!"
 
   # ─────────────────────────────────────────────
   # Autonomous Traffic Simulator
