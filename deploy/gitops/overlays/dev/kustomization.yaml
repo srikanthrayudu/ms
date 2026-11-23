@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: rideshare-dev
+
+resources:
+  - ../../../k8s
+
+patches:
+  - target:
+      kind: ConfigMap
+      name: rideshare-config
+    patch: |-
+      - op: replace
+        path: /data/LOG_LEVEL
+        value: "debug"

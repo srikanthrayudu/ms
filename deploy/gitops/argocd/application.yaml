@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rideshare-platform
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: rideshare-platform
+    app.kubernetes.io/part-of: rideshare
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: rideshare-project
+
+  # Single Source of Truth in Git
+  source:
+    repoURL: https://github.com/srikanthrayudu/ms.git
+    targetRevision: HEAD
+    path: deploy/k8s
+
+  # Destination Cluster & Namespace
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: rideshare
+
+  # GitOps Automated Synchronization & Drift Correction Policy
+  syncPolicy:
+    automated:
+      prune: true       # Automatically deletes resources removed from Git
+      selfHeal: true    # Reconciles any manual changes made via kubectl back to Git state
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

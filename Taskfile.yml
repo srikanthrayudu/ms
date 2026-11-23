@@ -356,6 +356,53 @@ tasks:
         kubectl -n rideshare get pods
 
   # ─────────────────────────────────────────────
+  # GitOps with Argo CD
+  # ─────────────────────────────────────────────
+  gitops:install:
+    desc: Install Argo CD control plane into namespace 'argocd'
+    cmds:
+      - kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+      - kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+      - 'echo "  🐙 Argo CD manifests applied to namespace \"argocd\""'
+
+  gitops:apply:
+    desc: Register AppProject and Application in Argo CD for declarative GitOps synchronization
+    cmds:
+      - kubectl apply -f {{.ROOT_DIR}}/deploy/gitops/argocd/project.yaml
+      - kubectl apply -f {{.ROOT_DIR}}/deploy/gitops/argocd/application.yaml
+      - 'echo "  🐙 Argo CD AppProject & Application registered"'
+
+  gitops:status:
+    desc: Check Argo CD synchronization and health status
+    cmds:
+      - kubectl -n argocd get applications,appprojects 2>/dev/null || echo "Argo CD CRDs not installed yet (run task gitops:install)"
+      - kubectl -n argocd get pods
+
+  gitops:ui:
+    desc: Retrieve initial Argo CD admin password and start Web UI port-forward (https://localhost:8081)
+    cmds:
+      - |
+        PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" 2>/dev/null | base64 -d || echo "admin")
+        echo ""
+        echo "  🐙 Argo CD Dashboard: https://localhost:8081"
+        echo "  👤 Username:          admin"
+        echo "  🔑 Password:          $PASSWORD"
+        echo ""
+      - kubectl -n argocd port-forward svc/argocd-server 8081:443
+
+  gitops:drift:demo:
+    desc: Simulate configuration drift to demonstrate Argo CD automated self-healing
+    cmds:
+      - |
+        echo "  🚨 Injecting manual drift: scaling ride-service deployment to 0 replicas..."
+        kubectl -n rideshare scale deployment ride-service --replicas=0
+        sleep 2
+        kubectl -n rideshare get deployment ride-service
+        echo "  ⏳ Watching Argo CD detect drift and auto-heal back to Git state..."
+        sleep 5
+        kubectl -n rideshare get deployment ride-service
+
+  # ─────────────────────────────────────────────
   # Podman & Podman Desktop Kubernetes Integration
   # ─────────────────────────────────────────────
   podman:build:

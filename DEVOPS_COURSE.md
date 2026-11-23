@@ -309,6 +309,28 @@ Follow these hands-on labs using the project workspace:
 
 ---
 
+### Lab 11: GitOps Continuous Delivery & Self-Healing with Argo CD
+1. Install Argo CD control plane:
+   ```bash
+   task gitops:install
+   ```
+2. Register the GitOps application:
+   ```bash
+   task gitops:apply
+   ```
+3. Open the Argo CD visual dashboard:
+   ```bash
+   task gitops:ui
+   ```
+   *(Navigate to `https://localhost:8081` and log in with user `admin` and printed secret).*
+4. Run the live GitOps drift and self-healing demonstration:
+   ```bash
+   task gitops:drift:demo
+   ```
+   *Watch Argo CD detect manual replica drift and immediately self-heal the cluster back to the Git source of truth!*
+
+---
+
 ## Command Reference Cheat Sheet
 
 | Command | Purpose |
@@ -320,6 +342,10 @@ Follow these hands-on labs using the project workspace:
 | `task k8s:chaos` | Execute pod kill drill to prove self-healing |
 | `task k8s:forward:obs` | Port-forward Prometheus (:9090) and Jaeger (:16686) |
 | `task k8s:logs -- <svc>` | Tail live logs for a specific service in K8s |
+| `task gitops:install` | Install Argo CD control plane into cluster |
+| `task gitops:apply` | Register GitOps AppProject and Application |
+| `task gitops:ui` | Open Argo CD Web UI at https://localhost:8081 |
+| `task gitops:drift:demo` | Demonstrate GitOps drift detection & auto-healing |
 | `task simulate` | Run 20 autonomous drivers with live GPS telemetry |
 | `task test` | Run all Go unit and integration tests |
 | `task vet` | Run static analysis (`go vet`) across all modules |

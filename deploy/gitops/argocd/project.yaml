@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: rideshare-project
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: rideshare
+spec:
+  description: "RideShare Microservices Platform & Infrastructure"
+  
+  # Whitelist of allowed source Git repositories
+  sourceRepos:
+    - "https://github.com/srikanthrayudu/ms.git"
+    - "*" # Permits local and fork repositories
+
+  # Permitted destination Kubernetes clusters and namespaces
+  destinations:
+    - namespace: rideshare
+      server: https://kubernetes.default.svc
+    - namespace: argocd
+      server: https://kubernetes.default.svc
+
+  # Whitelist cluster-level and namespace-level resources
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+
+  # Roles & Permissions for GitOps governance
+  roles:
+    - name: devops-admin
+      description: "Full read/write permissions for DevOps automation"
+      policies:
+        - p, proj:rideshare-project:devops-admin, applications, *, rideshare-project/*, allow
+      groups:
+        - "devops-team"

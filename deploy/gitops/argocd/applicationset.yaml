@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: rideshare-multienv
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: rideshare
+spec:
+  generators:
+    - list:
+        elements:
+          - env: dev
+            namespace: rideshare-dev
+            autoSync: true
+          - env: prod
+            namespace: rideshare-prod
+            autoSync: false # Production requires manual approval / gate
+  template:
+    metadata:
+      name: 'rideshare-{{env}}'
+      labels:
+        environment: '{{env}}'
+    spec:
+      project: rideshare-project
+      source:
+        repoURL: https://github.com/srikanthrayudu/ms.git
+        targetRevision: HEAD
+        path: 'deploy/gitops/overlays/{{env}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
