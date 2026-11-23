@@ -5,6 +5,8 @@ vars:
     sh: go env GOPATH
   BINDIR: "{{.ROOT_DIR}}/bin"
   LOGDIR: /tmp/ms
+  KIND_CLUSTER:
+    sh: kind get clusters 2>/dev/null | grep -v '^$' | head -n 1 || echo "kind-cluster"
   CONTAINER_TOOL:
     sh: which docker 2>/dev/null || which podman 2>/dev/null || echo docker
   COMPOSE_CMD:
@@ -206,12 +208,12 @@ tasks:
           - payment-service
           - notification-service
           - api-gateway
-        cmd: "{{.CONTAINER_TOOL}} build -t rideshare/{{.ITEM}}:latest -f services/{{.ITEM}}/Dockerfile {{.ROOT_DIR}}"
+        cmd: "{{.CONTAINER_TOOL}} build -t rideshare/{{.ITEM}}:latest -t docker.io/rideshare/{{.ITEM}}:latest -f services/{{.ITEM}}/Dockerfile {{.ROOT_DIR}}"
 
   docker:build:service:
     desc: "Build a single container image (e.g. task docker:build:service -- ride-service)"
     cmds:
-      - "{{.CONTAINER_TOOL}} build -t rideshare/{{.CLI_ARGS}}:latest -f services/{{.CLI_ARGS}}/Dockerfile {{.ROOT_DIR}}"
+      - "{{.CONTAINER_TOOL}} build -t rideshare/{{.CLI_ARGS}}:latest -t docker.io/rideshare/{{.CLI_ARGS}}:latest -f services/{{.CLI_ARGS}}/Dockerfile {{.ROOT_DIR}}"
 
   compose:up:
     desc: Start the entire platform using Docker Compose or Podman Compose
@@ -260,6 +262,12 @@ tasks:
       - kubectl delete -k {{.ROOT_DIR}}/deploy/k8s
       - echo "  🗑️   Kubernetes manifests deleted"
 
+  k8s:restart:
+    desc: Restart all microservice deployments in Kubernetes
+    cmds:
+      - kubectl -n rideshare rollout restart deployment
+      - echo "  ♻️  All deployments restarted in namespace 'rideshare'"
+
   k8s:status:
     desc: Show status of pods, services and ingresses in namespace 'rideshare'
     cmds:
@@ -302,8 +310,14 @@ tasks:
           - payment-service
           - notification-service
           - api-gateway
-        cmd: kind load docker-image rideshare/{{.ITEM}}:latest || podman image save rideshare/{{.ITEM}}:latest | kind load image-archive /dev/stdin
-      - echo "  📦 All 7 microservices loaded into Kind cluster!"
+        cmd: |
+          podman tag rideshare/{{.ITEM}}:latest docker.io/rideshare/{{.ITEM}}:latest 2>/dev/null || true
+          if echo "{{.CONTAINER_TOOL}}" | grep -q podman; then
+            podman image save docker.io/rideshare/{{.ITEM}}:latest | kind load image-archive /dev/stdin --name {{.KIND_CLUSTER}}
+          else
+            kind load docker-image docker.io/rideshare/{{.ITEM}}:latest --name {{.KIND_CLUSTER}} || kind load docker-image rideshare/{{.ITEM}}:latest --name {{.KIND_CLUSTER}}
+          fi
+      - echo "  📦 All 7 microservices loaded into Kind cluster '{{.KIND_CLUSTER}}'!"
 
   # ─────────────────────────────────────────────
   # Autonomous Traffic Simulator
