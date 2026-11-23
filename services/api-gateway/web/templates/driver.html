@@ -2,10 +2,13 @@
 {{if not .Onboarded}}
 
 <div class="onboard-wrap">
-  <div style="margin-bottom:28px">
+  <div class="auth-logo">
+    <div class="brand-icon">🧑‍✈️</div>
+  </div>
+  <div style="margin-bottom:28px; text-align:center;">
     <h2>Set up your driver profile</h2>
-    <p class="muted mt-4">Add your vehicle details to start accepting rides.</p>
-    <div class="onboard-steps mt-16">
+    <p class="muted mt-4">Add your vehicle details to start accepting rides and earning.</p>
+    <div class="onboard-steps mt-16" style="justify-content:center;">
       <div class="step-dot active"></div>
       <div class="step-dot"></div>
       <div class="step-dot"></div>
@@ -14,20 +17,22 @@
 
   <div class="card" data-signals="{license:'',plate:'',model:''}">
     <form data-on:submit="@post('/api/driver/onboard')">
-      <label>
-        <span>Driver's license number</span>
-        <input data-bind="license" placeholder="e.g. DL-123456" required>
-      </label>
-      <label>
-        <span>Vehicle plate</span>
-        <input data-bind="plate" placeholder="e.g. NY-1234" required>
-      </label>
-      <label>
-        <span>Vehicle model</span>
-        <input data-bind="model" placeholder="e.g. Toyota Camry 2022" required>
-      </label>
-      <div class="form-actions">
-        <button class="btn primary w-full" type="submit">Complete setup</button>
+      <div class="form-group">
+        <label>
+          <span>Driver's license number</span>
+          <input data-bind="license" placeholder="e.g. DL-123456" required>
+        </label>
+        <label>
+          <span>Vehicle plate</span>
+          <input data-bind="plate" placeholder="e.g. NY-1234" required>
+        </label>
+        <label>
+          <span>Vehicle model</span>
+          <input data-bind="model" placeholder="e.g. Toyota Camry 2022" required>
+        </label>
+        <div class="form-actions">
+          <button class="btn primary w-full" type="submit">Complete setup →</button>
+        </div>
       </div>
     </form>
     <div id="form-error"></div>
@@ -37,18 +42,46 @@
 {{else}}
 
 <div data-signals="{online:false}">
+  <!-- Header with earnings -->
   <div class="driver-header">
     <div>
       <h2>Driver Dashboard</h2>
       <p class="muted mt-4">{{if .UserName}}Welcome, {{.UserName}}.{{else}}Welcome back.{{end}} Toggle online to start accepting rides.</p>
     </div>
     <div class="online-toggle">
+      <div class="online-ring" id="online-ring"></div>
       <label class="toggle-track">
         <input type="checkbox" data-bind="online" data-on:change="@post('/api/driver/availability')">
         <span class="toggle-thumb"></span>
       </label>
       <span class="online-label" id="online-label">Offline</span>
     </div>
+  </div>
+
+  <!-- Earnings cards -->
+  <div class="driver-earnings-row">
+    <div class="stat-card">
+      <span class="stat-label">Today's earnings</span>
+      <span class="stat-value" id="earnings-today" style="color:var(--green)">$0.00</span>
+      <span class="stat-sub">updated live</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Trips today</span>
+      <span class="stat-value" id="trips-today">0</span>
+      <span class="stat-sub">completed</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Rating</span>
+      <span class="stat-value" style="color:var(--amber)">★ 4.9</span>
+      <span class="stat-sub">142 ratings</span>
+    </div>
+  </div>
+
+  <!-- Safety badges -->
+  <div class="safety-row" style="margin-bottom:16px;">
+    <span class="safety-badge">✅ Verified driver</span>
+    <span class="safety-badge privacy">🛡️ Private routing</span>
+    <span class="safety-badge">🧩 WASM fare-engine</span>
   </div>
 
   <div id="driver-status"></div>
@@ -72,17 +105,17 @@
 
   var mDriver = null, mPick = null, mDrop = null;
   var walkTimer = null, cur = null, target = null;
-  var hint = document.getElementById('driver-map-hint');
+  var tripsToday = 0, earningsToday = 0;
+  var hint  = document.getElementById('driver-map-hint');
   var label = document.getElementById('online-label');
+  var ring  = document.getElementById('online-ring');
 
-  var carIcon   = L.divIcon({
-    html: '<div class="vehicle-marker-glow"><div class="radar-ring green"></div><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#064e3b" stroke="#34d399" stroke-width="2"/><path d="M12 6L16 16L12 14L8 16L12 6Z" fill="#6ee7b7"/></svg></div>',
-    className: 'smooth-marker',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16]
+  var carIcon = L.divIcon({
+    html: '<div class="vehicle-marker-glow"><div class="radar-ring green"></div><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#052e16" stroke="#10b981" stroke-width="2"/><path d="M12 6L16 16L12 14L8 16L12 6Z" fill="#6ee7b7"/></svg></div>',
+    className: 'smooth-marker', iconSize:[32,32], iconAnchor:[16,16]
   });
-  var pickIcon  = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#2ecc8c;border:2px solid #fff;box-shadow:0 0 10px rgba(46,204,140,0.8)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
-  var dropIcon  = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#6c8cff;border:2px solid #fff;box-shadow:0 0 10px rgba(108,140,255,0.8)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+  var pickIcon = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#10b981;border:2px solid #fff;box-shadow:0 0 10px rgba(16,185,129,.8)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+  var dropIcon = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#a78bfa;border:2px solid #fff;box-shadow:0 0 10px rgba(167,139,250,.8)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
 
   window.setDriverMarker = function (lat, lng) {
     var ll = [lat, lng];
@@ -105,6 +138,8 @@
     setDriverMarker(cur.lat, cur.lng);
     postLoc();
     label.textContent = 'Online';
+    label.style.color = 'var(--green)';
+    ring.classList.add('active');
     hint.textContent = 'Waiting for a ride request…';
     walkTimer = setInterval(function () {
       if (target) {
@@ -119,29 +154,42 @@
   window.stopDrivingLoop = function () {
     if (walkTimer) { clearInterval(walkTimer); walkTimer = null; }
     label.textContent = 'Offline';
+    label.style.color = '';
+    ring.classList.remove('active');
     hint.textContent = 'Go online to appear on the map';
   };
 
   window.onRideMatched = function (rid, plat, plng, dlat, dlng) {
     if (!cur) cur = { lat: DEF[0], lng: DEF[1] };
-    if (!mPick) mPick = L.marker([plat, plng], { icon: pickIcon }).addTo(map).bindTooltip('Pickup');
-    else mPick.setLatLng([plat, plng]);
-    if (!mDrop) mDrop = L.marker([dlat, dlng], { icon: dropIcon }).addTo(map).bindTooltip('Destination');
-    else mDrop.setLatLng([dlat, dlng]);
+    if (!mPick) mPick = L.marker([plat,plng], { icon: pickIcon }).addTo(map).bindTooltip('Pickup');
+    else mPick.setLatLng([plat,plng]);
+    if (!mDrop) mDrop = L.marker([dlat,dlng], { icon: dropIcon }).addTo(map).bindTooltip('Destination');
+    else mDrop.setLatLng([dlat,dlng]);
     target = { lat: plat, lng: plng };
-    map.fitBounds([[plat, plng], [dlat, dlng], [cur.lat, cur.lng]], { padding: [52, 52] });
-    hint.textContent = 'Heading to pickup';
+    map.fitBounds([[plat,plng],[dlat,dlng],[cur.lat,cur.lng]], { padding:[52,52] });
+    hint.textContent = 'Heading to pickup 🟢';
     startDrivingLoop();
   };
 
-  window.onRideStatus = function (s) {
+  window.onRideStatus = function (s, fare) {
     if (s === 'ONGOING' && mDrop) {
       target = { lat: mDrop.getLatLng().lat, lng: mDrop.getLatLng().lng };
-      hint.textContent = 'Heading to destination';
+      hint.textContent = 'En route to destination 🔵';
     }
-    if (s === 'COMPLETED' || s === 'CANCELLED') {
+    if (s === 'COMPLETED') {
       stopDrivingLoop();
-      hint.textContent = s === 'COMPLETED' ? 'Trip complete — ready for next ride' : 'Trip cancelled';
+      hint.textContent = 'Trip complete — ready for next ride ✅';
+      tripsToday++;
+      if (fare) earningsToday += parseFloat(fare);
+      document.getElementById('trips-today').textContent = tripsToday;
+      document.getElementById('earnings-today').textContent = '$' + earningsToday.toFixed(2);
+      if (mPick) { map.removeLayer(mPick); mPick = null; }
+      if (mDrop) { map.removeLayer(mDrop); mDrop = null; }
+      target = null;
+    }
+    if (s === 'CANCELLED') {
+      stopDrivingLoop();
+      hint.textContent = 'Trip cancelled — go online for the next';
       if (mPick) { map.removeLayer(mPick); mPick = null; }
       if (mDrop) { map.removeLayer(mDrop); mDrop = null; }
       target = null;

@@ -4,17 +4,32 @@
   <input type="hidden" data-bind="pickupLng">
   <input type="hidden" data-bind="dropoffLat">
   <input type="hidden" data-bind="dropoffLng">
+  <input type="hidden" id="promo-code-hidden" name="promo" value="">
 
   <div style="margin-bottom:24px">
     <h2>Where to{{if .UserName}}, {{.UserName}}{{end}}?</h2>
-    <p class="muted mt-4">Tap a point on the map to set your pickup, then tap again for your destination.</p>
+    <p class="muted mt-4">Set your pickup and destination, choose your ride type, then request.</p>
   </div>
 
+  <!-- Address inputs -->
+  <div class="address-row">
+    <div class="address-field">
+      <span class="addr-dot pickup"></span>
+      <input id="addr-pickup" placeholder="Pickup location" autocomplete="off" oninput="onAddrInput()">
+    </div>
+    <div class="address-connector"></div>
+    <div class="address-field">
+      <span class="addr-dot dropoff"></span>
+      <input id="addr-dropoff" placeholder="Destination" autocomplete="off" oninput="onAddrInput()">
+    </div>
+  </div>
+
+  <!-- Map toggle -->
   <div class="map-toggle">
-    <button class="toggle-btn active-pickup" onclick="setPlace('pickup')" id="btn-pickup">
+    <button class="toggle-btn active-pickup" onclick="setPlace('pickup')" id="btn-pickup" type="button">
       <span>🟢</span> Set pickup
     </button>
-    <button class="toggle-btn" onclick="setPlace('dropoff')" id="btn-dropoff">
+    <button class="toggle-btn" onclick="setPlace('dropoff')" id="btn-dropoff" type="button">
       <span>🔵</span> Set destination
     </button>
   </div>
@@ -24,6 +39,7 @@
     <div id="map" class="map"></div>
   </div>
 
+  <!-- Location pills -->
   <div class="location-row">
     <div class="location-pill">
       <span class="loc-icon">🟢</span>
@@ -41,21 +57,86 @@
     </div>
   </div>
 
-  <div style="margin-bottom:16px;">
-    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;">
-      <input type="checkbox" data-bind="pool" style="width:16px;height:16px;cursor:pointer;">
-      <div>
-        <div style="font-weight:600;font-size:14px;">Carpool / Pool ride</div>
-        <div class="muted" style="font-size:12px;">Share with nearby riders heading the same way for lower fare</div>
+  <!-- Surge notice -->
+  <div class="surge-notice" id="surge-notice">
+    🔥 <span><b>High Demand — Surge Active:</b> Fares are dynamically adjusted for real-time demand.</span>
+  </div>
+
+  <!-- Ride type selector -->
+  <div class="ride-type-section">
+    <span class="ride-type-label">Choose your ride</span>
+    <div class="ride-type-grid" id="ride-type-grid">
+      <div class="ride-type-card selected" data-type="SOLO" data-base="4" data-rate="1.20" onclick="selectRideType(this)">
+        <span class="rtc-icon">🚗</span>
+        <span class="rtc-name">SwiftGo</span>
+        <span class="rtc-desc">Economy · 1-3 seats</span>
+        <span class="rtc-price" id="price-SOLO">—</span>
       </div>
-    </label>
+      <div class="ride-type-card" data-type="COMFORT" data-base="6" data-rate="1.80" onclick="selectRideType(this)">
+        <span class="rtc-icon">🛋️</span>
+        <span class="rtc-name">Comfort</span>
+        <span class="rtc-desc">Premium · extra leg room</span>
+        <span class="rtc-price" id="price-COMFORT">—</span>
+      </div>
+      <div class="ride-type-card" data-type="XL" data-base="8" data-rate="2.20" onclick="selectRideType(this)">
+        <span class="rtc-icon">🚐</span>
+        <span class="rtc-name">XL</span>
+        <span class="rtc-desc">Up to 6 passengers</span>
+        <span class="rtc-price" id="price-XL">—</span>
+      </div>
+      <div class="ride-type-card" data-type="POOL" data-base="4" data-rate="1.20" onclick="selectRideType(this)">
+        <span class="rtc-icon">🤝</span>
+        <span class="rtc-name">Pool</span>
+        <span class="rtc-desc">Share · save up to 40%</span>
+        <span class="rtc-price" id="price-POOL">—</span>
+      </div>
+    </div>
   </div>
 
-  <div id="surge-notice" style="display:none;margin-bottom:14px;padding:10px 14px;background:rgba(245,158,11,0.15);border:1px solid #f59e0b;border-radius:8px;font-size:13px;color:#fcd34d;">
-    🔥 <b>High Demand Surge Active:</b> Fares are dynamically adjusted based on real-time driver availability.
+  <!-- Fare estimate -->
+  <div class="fare-estimate-card" id="fare-estimate">
+    <div>
+      <div class="fare-amount"><span class="currency">$</span><span id="fare-num">0</span></div>
+      <div class="fare-eta" id="fare-eta">— min away</div>
+    </div>
+    <div class="fare-breakdown">
+      <span class="fare-line" id="fare-line">Select pickup &amp; destination</span>
+      <small id="fare-sub"></small>
+    </div>
+    <div>
+      <span id="fare-surge-badge" class="fare-surge-badge" style="display:none">🔥 Surge</span>
+    </div>
   </div>
 
-  <button class="btn primary lg w-full" data-on:click="@post('/api/rides')">Request ride →</button>
+  <!-- Pool hidden signal -->
+  <input type="hidden" data-bind="pool" id="pool-signal-input">
+
+  <!-- Promo code -->
+  <div class="promo-section">
+    <div class="promo-toggle" onclick="togglePromo()" id="promo-toggle">
+      <span>🏷️</span> Have a promo code?
+      <span id="promo-chevron" style="margin-left:auto;font-size:11px;">▼</span>
+    </div>
+    <div class="promo-body" id="promo-body">
+      <div class="promo-input-row">
+        <input id="promo-input" placeholder="Enter code e.g. SWIFT20" oninput="this.value=this.value.toUpperCase()">
+        <button class="btn ghost sm" type="button" onclick="applyPromo()">Apply</button>
+      </div>
+      <div class="promo-applied" id="promo-applied">✅ Code applied — 20% off this trip!</div>
+    </div>
+  </div>
+
+  <!-- Safety badges -->
+  <div class="safety-row">
+    <span class="safety-badge">✅ Verified driver</span>
+    <span class="safety-badge">📍 Trip shared</span>
+    <span class="safety-badge privacy">🛡️ Private routing</span>
+    <span class="safety-badge privacy">🔒 Encrypted events</span>
+  </div>
+
+  <button class="btn primary lg w-full" id="request-btn" data-on:click="@post('/api/rides')">
+    Request <span id="btn-ride-type">SwiftGo</span> →
+  </button>
   <div id="form-error"></div>
 </div>
 
@@ -68,10 +149,12 @@
   }).addTo(map);
 
   var place = 'pickup';
-  var mPick = null, mDrop = null;
+  var mPick = null, mDrop = null, routeLine = null;
+  var distKm = 0, surgeMultiplier = 1.0;
+  var selectedCard = document.querySelector('.ride-type-card.selected');
 
-  var pickupIcon = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#2ecc8c;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
-  var dropIcon  = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#6c8cff;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+  var pickupIcon = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#10b981;border:2px solid #fff;box-shadow:0 0 10px rgba(16,185,129,.7)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+  var dropIcon   = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#a78bfa;border:2px solid #fff;box-shadow:0 0 10px rgba(167,139,250,.7)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
 
   window.setPlace = function (p) {
     place = p;
@@ -88,6 +171,62 @@
     el.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
+  function haversineKm(lat1, lng1, lat2, lng2) {
+    var R = 6371, dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180;
+    var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  function updateFare() {
+    var card = document.querySelector('.ride-type-card.selected');
+    if (!card || distKm <= 0) return;
+    var base = parseFloat(card.dataset.base);
+    var rate = parseFloat(card.dataset.rate);
+    var type = card.dataset.type;
+    var fare = (base + rate * distKm) * surgeMultiplier;
+    if (type === 'POOL') fare = fare * 0.60;
+    var fareEl = document.getElementById('fare-num');
+    var lineEl = document.getElementById('fare-line');
+    var subEl  = document.getElementById('fare-sub');
+    var etaEl  = document.getElementById('fare-eta');
+    var surgeEl = document.getElementById('fare-surge-badge');
+    fareEl.textContent = fare.toFixed(2);
+    lineEl.textContent = type + ' · ' + distKm.toFixed(1) + ' km · $' + (base + rate*distKm).toFixed(2) + ' base';
+    subEl.textContent = surgeMultiplier > 1 ? '× '+surgeMultiplier.toFixed(1)+' surge multiplier' : 'No surge active';
+    etaEl.textContent = Math.round(distKm * 2 + 2) + ' min ETA';
+    surgeEl.style.display = surgeMultiplier > 1 ? 'inline-flex' : 'none';
+    document.getElementById('fare-estimate').classList.add('visible');
+
+    // Update all card prices
+    document.querySelectorAll('.ride-type-card').forEach(function(c) {
+      var b = parseFloat(c.dataset.base), r = parseFloat(c.dataset.rate), t = c.dataset.type;
+      var f = (b + r * distKm) * surgeMultiplier;
+      if (t === 'POOL') f = f * 0.60;
+      var el = document.getElementById('price-' + t);
+      if (el) el.textContent = '$' + f.toFixed(2);
+    });
+  }
+
+  window.selectRideType = function (card) {
+    document.querySelectorAll('.ride-type-card').forEach(function(c) { c.classList.remove('selected'); });
+    card.classList.add('selected');
+    var isPool = card.dataset.type === 'POOL';
+    setSig('pool', isPool ? 'true' : '');
+    var nameMap = {SOLO:'SwiftGo', COMFORT:'Comfort', XL:'XL', POOL:'Pool'};
+    document.getElementById('btn-ride-type').textContent = nameMap[card.dataset.type] || card.dataset.type;
+    updateFare();
+  };
+
+  function drawRoute() {
+    if (!mPick || !mDrop) return;
+    var pts = [mPick.getLatLng(), mDrop.getLatLng()];
+    if (routeLine) routeLine.setLatLngs(pts);
+    else routeLine = L.polyline(pts, { color: '#8b5cf6', weight: 3, dashArray: '7,9', opacity: .8 }).addTo(map);
+    distKm = haversineKm(mPick.getLatLng().lat, mPick.getLatLng().lng, mDrop.getLatLng().lat, mDrop.getLatLng().lng);
+    updateFare();
+    map.fitBounds(pts, { padding: [52, 52] });
+  }
+
   map.on('click', function (e) {
     var lat = e.latlng.lat, lng = e.latlng.lng;
     if (place === 'pickup') {
@@ -97,17 +236,38 @@
       setPlace('dropoff');
       fetch('/api/surge').then(function(r){return r.json();}).then(function(d){
         if (d.zones && d.zones.length > 0) {
-          document.getElementById('surge-notice').style.display = 'block';
+          surgeMultiplier = d.zones[0].multiplier || 1.5;
+          document.getElementById('surge-notice').classList.add('visible');
+          updateFare();
         }
       }).catch(function(){});
     } else {
       if (mDrop) mDrop.setLatLng(e.latlng); else mDrop = L.marker(e.latlng, { icon: dropIcon }).addTo(map);
       setSig('dropoffLat', lat.toFixed(6));
       setSig('dropoffLng', lng.toFixed(6));
-      document.getElementById('map-hint').textContent = 'Tap "Request ride" when ready';
-      if (mPick && mDrop) map.fitBounds([mPick.getLatLng(), mDrop.getLatLng()], { padding: [48, 48] });
+      document.getElementById('map-hint').textContent = 'Tap "Request" when ready';
+      drawRoute();
     }
   });
+
+  window.onAddrInput = function() {};  // address inputs are UX-only; map sets coords
+
+  window.togglePromo = function() {
+    var body = document.getElementById('promo-body');
+    var chev = document.getElementById('promo-chevron');
+    var open = body.classList.toggle('open');
+    chev.textContent = open ? '▲' : '▼';
+  };
+
+  window.applyPromo = function() {
+    var code = document.getElementById('promo-input').value.trim();
+    if (!code) return;
+    document.getElementById('promo-code-hidden').value = code;
+    document.getElementById('promo-applied').style.display = 'block';
+    setTimeout(function() {
+      document.getElementById('fare-num').textContent = (parseFloat(document.getElementById('fare-num').textContent) * 0.80).toFixed(2);
+    }, 200);
+  };
 })();
 </script>
 {{end}}

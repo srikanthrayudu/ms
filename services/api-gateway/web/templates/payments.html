@@ -3,12 +3,62 @@
   <div class="payments-header">
     <div>
       <h2>Payment history</h2>
-      <p class="muted mt-4">Your completed trip payments.</p>
+      <p class="muted mt-4">Your completed trips and fare breakdowns.</p>
+    </div>
+  </div>
+
+  <!-- Summary stats (populated by JS from payment list) -->
+  <div class="payments-stats" id="payments-stats" style="display:none">
+    <div class="stat-card">
+      <span class="stat-label">Total trips</span>
+      <span class="stat-value" id="stat-trips">—</span>
+      <span class="stat-sub">all time</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Total spent</span>
+      <span class="stat-value" id="stat-total">—</span>
+      <span class="stat-sub">including surge</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Avg fare</span>
+      <span class="stat-value" id="stat-avg">—</span>
+      <span class="stat-sub">per trip</span>
     </div>
   </div>
 
   <div class="card" data-init="@get('/api/payments')">
-    <div id="payment-list" class="muted">Loading payments…</div>
+    <div id="payment-list" class="muted shimmer" style="height:80px;border-radius:8px;">
+      &nbsp;
+    </div>
   </div>
 </div>
+
+<script>
+// After datastar renders the payment list, enrich trip cards
+document.addEventListener('DOMContentLoaded', function () {
+  setTimeout(enrichPayments, 1200);
+});
+function enrichPayments() {
+  var list = document.getElementById('payment-list');
+  if (!list || list.classList.contains('muted')) return;
+  var items = list.querySelectorAll('[data-ride-id], .payment-item, tr');
+  if (items.length === 0) return;
+  var total = 0, count = 0;
+  items.forEach(function(item) {
+    var fareText = item.textContent.match(/\$?([\d.]+)/);
+    if (fareText) { total += parseFloat(fareText[1]); count++; }
+  });
+  if (count > 0) {
+    document.getElementById('payments-stats').style.display = 'grid';
+    document.getElementById('stat-trips').textContent = count;
+    document.getElementById('stat-total').textContent = '$' + total.toFixed(2);
+    document.getElementById('stat-avg').textContent = '$' + (total/count).toFixed(2);
+  }
+}
+// Make trip cards expandable
+document.addEventListener('click', function(e) {
+  var card = e.target.closest('.trip-card');
+  if (card) card.classList.toggle('expanded');
+});
+</script>
 {{end}}

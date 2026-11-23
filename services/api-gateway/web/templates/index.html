@@ -1,33 +1,64 @@
 {{define "content"}}
-<section class="hero">
-  <span class="hero-eyebrow">Now in beta</span>
-  <h1>Rides, delivered instantly.</h1>
-  <p class="subtitle">Request a ride in seconds. Real-time tracking, transparent pricing, and reliable drivers — all in one place.</p>
+<section class="hero" style="position:relative;overflow:hidden;">
+  <!-- Animated background orbs -->
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <span class="hero-eyebrow">⚡ Now in beta · Privacy-first rideshare</span>
+
+  <h1>
+    Move freely,<br>
+    <span class="gradient-text">privately.</span>
+  </h1>
+  <p class="subtitle">
+    Request a ride in seconds. WASM-sandboxed pricing, real-time tracking,
+    and Hopr-inspired privacy — all in one open platform.
+  </p>
+
   <div class="cta">
-    <a class="btn primary lg" href="/register">Create account</a>
+    <a class="btn primary lg" href="/register">Get started free →</a>
     <a class="btn ghost lg" href="/login">Sign in</a>
+  </div>
+
+  <!-- Ride type preview badges -->
+  <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:52px;">
+    <span class="safety-badge privacy">🛡️ Private trips</span>
+    <span class="safety-badge">🧩 WASM pricing</span>
+    <span class="safety-badge">🌊 Surge-aware</span>
+    <span class="safety-badge privacy">🔗 Decentralised matching</span>
   </div>
 
   <div class="feature-grid">
     <div class="feature-item">
       <span class="fi-icon">📍</span>
       <h3>Instant matching</h3>
-      <p>Get matched with the nearest available driver in real time.</p>
+      <p>Get matched with the nearest available driver in real time using spatial indexing.</p>
     </div>
     <div class="feature-item">
       <span class="fi-icon">🗺️</span>
       <h3>Live tracking</h3>
-      <p>Watch your driver's location update live on the map.</p>
+      <p>Watch your driver's location update live on the map — no polling, pure SSE.</p>
     </div>
     <div class="feature-item">
-      <span class="fi-icon">💳</span>
-      <h3>Auto payment</h3>
-      <p>Fare is calculated and charged automatically at trip end.</p>
+      <span class="fi-icon">🧩</span>
+      <h3>WASM pricing</h3>
+      <p>Fare logic runs inside a WebAssembly sandbox — hot-reloadable without restarts.</p>
     </div>
     <div class="feature-item">
-      <span class="fi-icon">🔔</span>
-      <h3>Smart alerts</h3>
-      <p>Get notified at every step — match, pickup, and arrival.</p>
+      <span class="fi-icon">🌊</span>
+      <h3>Surge pricing</h3>
+      <p>Dynamic surge based on real-time supply/demand spatial cells. Transparent always.</p>
+    </div>
+    <div class="feature-item">
+      <span class="fi-icon">🛡️</span>
+      <h3>Privacy-first</h3>
+      <p>Inspired by Hopr — minimal data, anonymous rider IDs, encrypted event streams.</p>
+    </div>
+    <div class="feature-item">
+      <span class="fi-icon">🤝</span>
+      <h3>Pool rides</h3>
+      <p>Share your trip with nearby riders heading the same way. Up to 40% cheaper.</p>
     </div>
   </div>
 </section>

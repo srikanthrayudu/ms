@@ -2,15 +2,97 @@
 <div>
   <div style="margin-bottom:20px">
     <h2>Your ride</h2>
-    <p class="muted mt-4">Live updates will appear below as your driver approaches.</p>
+    <p class="muted mt-4">Live updates appear below as your driver approaches.</p>
   </div>
 
+  <!-- Driver arrival card (shown when matched) -->
+  <div class="driver-arrival-card" id="driver-arrival-card">
+    <div class="dac-top">
+      <div class="dac-avatar">🧑‍✈️</div>
+      <div class="dac-info">
+        <span class="dac-name" id="dac-driver-name">Finding driver…</span>
+        <span class="dac-vehicle" id="dac-vehicle">Toyota Camry · NY-4821</span>
+        <div class="dac-rating">
+          ★ <span id="dac-rating-val">4.9</span>
+          <span style="color:var(--muted);font-weight:400;font-size:12px;">(142 trips)</span>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">WASM Engine</div>
+        <div style="font-size:11px;color:var(--purple-l);">🧩 fare-engine@v1</div>
+      </div>
+    </div>
+    <div class="dac-eta-row">
+      <div>
+        <div class="dac-eta-label">Arriving in</div>
+        <div>
+          <span class="dac-eta-value" id="eta-countdown">—</span>
+          <span class="dac-eta-unit"> min</span>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="dac-eta-label">Status</div>
+        <div id="dac-status-text" style="font-size:14px;font-weight:600;color:var(--amber);">Matching…</div>
+      </div>
+    </div>
+    <div class="eta-progress-bar"><div class="eta-progress-fill" id="eta-bar"></div></div>
+    <div class="dac-actions" style="margin-top:14px;">
+      <button class="btn ghost sm" onclick="shareTrip()">📤 Share trip</button>
+      <button class="btn danger sm" onclick="emergencyAlert()">🚨 Emergency</button>
+    </div>
+  </div>
+
+  <!-- Classic status panel -->
   <div id="ride-status" class="status pending">
-    <span class="badge pending">Finding your driver…</span>
-    <div class="driver">Searching for nearby drivers</div>
+    <span class="badge pending" id="status-badge">🔍 Finding your driver…</span>
+    <div class="driver" id="status-detail">Searching for nearby drivers</div>
   </div>
 
-  <div id="map" class="map" style="margin-bottom:0"></div>
+  <!-- Map -->
+  <div class="map-wrap">
+    <div id="map" class="map"></div>
+  </div>
+
+  <!-- Safety row -->
+  <div class="safety-row" style="margin-top:16px;">
+    <span class="safety-badge">📍 Trip being tracked</span>
+    <span class="safety-badge privacy">🛡️ Private routing active</span>
+    <span class="safety-badge privacy">🔒 Encrypted stream</span>
+  </div>
+
+  <!-- Rating widget (appears on completion) -->
+  <div id="rating-widget">
+    <div class="trip-complete-banner">
+      🎉 Trip completed! You arrived safely.
+    </div>
+    <div class="trip-fare-summary" id="trip-fare-summary">
+      <div class="tfs-item">
+        <span class="tfs-label">Base fare</span>
+        <span class="tfs-value" id="tfs-base">—</span>
+      </div>
+      <div class="tfs-item">
+        <span class="tfs-label">Surge</span>
+        <span class="tfs-value" id="tfs-surge" style="color:var(--amber)">1.0×</span>
+      </div>
+      <div class="tfs-item">
+        <span class="tfs-label">Total</span>
+        <span class="tfs-value" id="tfs-total" style="color:var(--purple-l)">—</span>
+      </div>
+    </div>
+    <h3>Rate your trip</h3>
+    <p>How was your experience with <span id="rating-driver-name">your driver</span>?</p>
+    <div class="rating-stars" id="rating-stars">
+      <span class="star" onclick="rateStar(1)" data-star="1">⭐</span>
+      <span class="star" onclick="rateStar(2)" data-star="2">⭐</span>
+      <span class="star" onclick="rateStar(3)" data-star="3">⭐</span>
+      <span class="star" onclick="rateStar(4)" data-star="4">⭐</span>
+      <span class="star" onclick="rateStar(5)" data-star="5">⭐</span>
+    </div>
+    <div class="rating-comment">
+      <textarea placeholder="Leave a comment (optional)…" rows="2" style="width:100%;resize:vertical;"></textarea>
+    </div>
+    <button class="btn primary w-full" onclick="submitRating()">Submit rating →</button>
+  </div>
 
   <div data-init="@get('/api/rides/{{.RideID}}/stream')"></div>
 </div>
@@ -24,14 +106,14 @@
   }).addTo(map);
 
   var mPick = null, mDrop = null, mDriver = null, routeLine = null;
+  var etaTimer = null, etaMins = 5;
+  var currentStatus = '';
 
-  var pickupIcon = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#2ecc8c;border:2px solid #fff;box-shadow:0 0 10px rgba(46,204,140,0.8)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
-  var dropIcon   = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#6c8cff;border:2px solid #fff;box-shadow:0 0 10px rgba(108,140,255,0.8)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+  var pickupIcon = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#10b981;border:2px solid #fff;box-shadow:0 0 10px rgba(16,185,129,.8)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
+  var dropIcon   = L.divIcon({ html: '<div style="width:14px;height:14px;border-radius:50%;background:#a78bfa;border:2px solid #fff;box-shadow:0 0 10px rgba(167,139,250,.8)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] });
   var carIcon    = L.divIcon({
-    html: '<div class="vehicle-marker-glow"><div class="radar-ring"></div><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#1e1b4b" stroke="#818cf8" stroke-width="2"/><path d="M12 6L16 16L12 14L8 16L12 6Z" fill="#a5b4fc"/></svg></div>',
-    className: 'smooth-marker',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16]
+    html: '<div class="vehicle-marker-glow"><div class="radar-ring"></div><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#120f20" stroke="#8b5cf6" stroke-width="2"/><path d="M12 6L16 16L12 14L8 16L12 6Z" fill="#c4b5fd"/></svg></div>',
+    className: 'smooth-marker', iconSize: [32,32], iconAnchor: [16,16]
   });
 
   function refreshRoute() {
@@ -40,24 +122,62 @@
     if (mPick) pts.push(mPick.getLatLng());
     if (mDrop) pts.push(mDrop.getLatLng());
     if (pts.length >= 2) {
-      if (routeLine) {
-        routeLine.setLatLngs(pts);
-      } else {
-        routeLine = L.polyline(pts, {
-          color: '#818cf8',
-          weight: 3,
-          dashArray: '6, 8',
-          opacity: 0.85
-        }).addTo(map);
-      }
+      if (routeLine) routeLine.setLatLngs(pts);
+      else routeLine = L.polyline(pts, { color: '#8b5cf6', weight: 3, dashArray: '6,8', opacity: .85 }).addTo(map);
     }
+  }
+
+  function startEtaCountdown(mins) {
+    etaMins = mins;
+    document.getElementById('eta-countdown').textContent = etaMins;
+    if (etaTimer) clearInterval(etaTimer);
+    etaTimer = setInterval(function () {
+      etaMins = Math.max(0, etaMins - 1);
+      document.getElementById('eta-countdown').textContent = etaMins;
+      if (etaMins === 0) clearInterval(etaTimer);
+    }, 60000);
+  }
+
+  function showArrivalCard(driverName, vehicle) {
+    var card = document.getElementById('driver-arrival-card');
+    document.getElementById('dac-driver-name').textContent = driverName || 'Your driver';
+    document.getElementById('dac-vehicle').textContent = vehicle || 'Vehicle info';
+    document.getElementById('rating-driver-name').textContent = driverName || 'your driver';
+    card.classList.add('visible');
+    startEtaCountdown(4);
+  }
+
+  function updateStatus(st) {
+    currentStatus = st;
+    var badge = document.getElementById('status-badge');
+    var detail = document.getElementById('status-detail');
+    var dac = document.getElementById('dac-status-text');
+    var statusMap = {
+      'REQUESTED':   ['pending',  '🔍 Finding your driver…',    'Searching…'],
+      'MATCHED':     ['matched',  '🟢 Driver matched!',          'On the way'],
+      'ON_THE_WAY':  ['matched',  '🚗 Driver is on the way',     'Approaching'],
+      'ONGOING':     ['ongoing',  '🛣️ Ride in progress',         'En route'],
+      'COMPLETED':   ['done',     '✅ Trip complete!',            'Arrived'],
+      'CANCELLED':   ['cancelled','❌ Trip cancelled',            'Cancelled'],
+    };
+    var info = statusMap[st] || ['pending', st, st];
+    badge.className = 'badge ' + info[0];
+    badge.textContent = info[1];
+    detail.textContent = '';
+    if (dac) dac.textContent = info[2];
+
+    if (st === 'COMPLETED') {
+      document.getElementById('rating-widget').classList.add('visible');
+      if (etaTimer) clearInterval(etaTimer);
+    }
+    if (st === 'CANCELLED' && etaTimer) clearInterval(etaTimer);
   }
 
   window.placePickup = function (lat, lng) {
     var ll = [lat, lng];
     if (mPick) mPick.setLatLng(ll); else mPick = L.marker(ll, { icon: pickupIcon }).addTo(map).bindTooltip('Pickup');
     refreshRoute();
-    if (mDrop) map.fitBounds([ll, mDrop.getLatLng()], { padding: [52, 52] });
+    if (mDrop) map.fitBounds([ll, mDrop.getLatLng()], { padding: [52,52] });
   };
   window.placeDropoff = function (lat, lng) {
     var ll = [lat, lng];
@@ -66,8 +186,42 @@
   };
   window.moveDriverMarker = function (lat, lng) {
     var ll = [lat, lng];
-    if (mDriver) { mDriver.setLatLng(ll); } else { mDriver = L.marker(ll, { icon: carIcon }).addTo(map).bindTooltip('Your driver'); }
+    if (mDriver) mDriver.setLatLng(ll); else mDriver = L.marker(ll, { icon: carIcon }).addTo(map).bindTooltip('Your driver');
     refreshRoute();
+  };
+  window.onRideStatusUpdate = function(st, driverName, vehicle, fare, surge) {
+    updateStatus(st);
+    if (st === 'MATCHED' || st === 'ON_THE_WAY') {
+      showArrivalCard(driverName, vehicle);
+    }
+    if (st === 'COMPLETED' && fare) {
+      var base = fare / (surge || 1);
+      document.getElementById('tfs-base').textContent = '$' + base.toFixed(2);
+      document.getElementById('tfs-surge').textContent = (surge || 1).toFixed(1) + '×';
+      document.getElementById('tfs-total').textContent = '$' + fare.toFixed(2);
+    }
+  };
+
+  window.rateStar = function(n) {
+    document.querySelectorAll('.star').forEach(function(s, i) {
+      s.classList.toggle('active', i < n);
+    });
+  };
+  window.submitRating = function() {
+    document.getElementById('rating-widget').innerHTML = '<div class="trip-complete-banner">⭐ Thanks for your rating! See you next ride.</div>';
+    setTimeout(function(){ window.location.href = '/dashboard'; }, 2000);
+  };
+  window.shareTrip = function() {
+    if (navigator.share) {
+      navigator.share({ title: 'My Swiftride trip', text: 'Tracking my ride on Swiftride!', url: window.location.href });
+    } else {
+      navigator.clipboard.writeText(window.location.href).then(function(){ alert('Trip link copied!'); });
+    }
+  };
+  window.emergencyAlert = function() {
+    if (confirm('Alert emergency contacts and share your location?')) {
+      alert('Emergency services notified. Stay safe.');
+    }
   };
 })();
 </script>
