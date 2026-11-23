@@ -250,6 +250,15 @@ tasks:
   # ─────────────────────────────────────────────
   # Kubernetes
   # ─────────────────────────────────────────────
+  k8s:deploy:
+    desc: Complete end-to-end deployment (build, load to Kind, apply manifests, and rollout)
+    cmds:
+      - task: podman:build
+      - task: k8s:kind:load
+      - task: k8s:apply
+      - task: k8s:restart
+      - task: k8s:status
+
   k8s:apply:
     desc: Deploy all resources to Kubernetes via Kustomize
     cmds:
@@ -269,9 +278,51 @@ tasks:
       - echo "  ♻️  All deployments restarted in namespace 'rideshare'"
 
   k8s:status:
-    desc: Show status of pods, services and ingresses in namespace 'rideshare'
+    desc: Show status of pods, services, ingress, pvc, jobs, cronjobs in namespace 'rideshare'
     cmds:
-      - kubectl -n rideshare get pods,svc,ingress
+      - kubectl -n rideshare get pods,svc,ingress,pvc,job,cronjob
+
+  k8s:smoke-test:
+    desc: Run the automated Kubernetes post-deployment verification Job and view logs
+    cmds:
+      - kubectl -n rideshare delete job rideshare-smoke-test --ignore-not-found
+      - kubectl apply -f {{.ROOT_DIR}}/deploy/k8s/job-smoke-test.yaml
+      - kubectl -n rideshare wait --for=condition=complete --timeout=60s job/rideshare-smoke-test
+      - kubectl -n rideshare logs job/rideshare-smoke-test
+
+  k8s:cron:trigger:
+    desc: Manually trigger an immediate run of the maintenance CronJob
+    cmds:
+      - kubectl -n rideshare create job --from=cronjob/rideshare-maintenance rideshare-manual-$(date +%s)
+      - echo "  ⏱️  Triggered manual run of rideshare-maintenance CronJob"
+
+  k8s:logs:
+    desc: "Tail Kubernetes logs for a specific service (e.g. task k8s:logs -- api-gateway)"
+    cmds:
+      - kubectl -n rideshare logs -f -l app.kubernetes.io/name={{.CLI_ARGS}} --tail=100
+
+  k8s:context:
+    desc: Set active kubectl context namespace to 'rideshare' for Podman Desktop
+    cmds:
+      - kubectl config set-context --current --namespace=rideshare
+      - echo "  ☸️  Current kubectl context namespace set to 'rideshare'"
+
+  k8s:forward:obs:
+    desc: Port-forward Jaeger (16686) and Prometheus (9090) to localhost
+    cmds:
+      - 'echo "  📈 Prometheus -> http://localhost:9090"'
+      - 'echo "  🔍 Jaeger UI  -> http://localhost:16686"'
+      - kubectl -n rideshare port-forward svc/prometheus 9090:9090 & kubectl -n rideshare port-forward svc/jaeger 16686:16686
+
+  k8s:chaos:
+    desc: Terminate a random microservice pod to demonstrate Kubernetes self-healing
+    cmds:
+      - |
+        POD=$(kubectl -n rideshare get pods -l 'app.kubernetes.io/name in (api-gateway,ride-service,driver-service)' -o jsonpath='{.items[0].metadata.name}')
+        echo "  💥 Terminating pod: $POD"
+        kubectl -n rideshare delete pod "$POD" --now
+        sleep 2
+        kubectl -n rideshare get pods
 
   # ─────────────────────────────────────────────
   # Podman & Podman Desktop Kubernetes Integration
