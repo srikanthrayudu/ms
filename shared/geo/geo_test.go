@@ -69,3 +69,55 @@ func TestPoolFare(t *testing.T) {
 		t.Errorf("pool fare (%f) should be less than solo fare (%f)", f2, f1)
 	}
 }
+
+func TestSpatialCellID(t *testing.T) {
+	// Points very close together should be in same cell
+	c1 := geo.CellID(40.7128, -74.0060)
+	c2 := geo.CellID(40.7130, -74.0061)
+	if c1 != c2 {
+		t.Errorf("expected nearby points in same cell: %s vs %s", c1, c2)
+	}
+
+	// Points 15km away should be in different cells
+	c3 := geo.CellID(40.8500, -73.9000)
+	if c1 == c3 {
+		t.Errorf("distant points should have different cell IDs")
+	}
+
+	poly := geo.CellPolygon(c1)
+	if len(poly) != 6 {
+		t.Errorf("expected 6 hexagon vertices, got %d", len(poly))
+	}
+}
+
+func TestSurgeEngine(t *testing.T) {
+	engine := geo.NewSurgeEngine(0)
+	lat, lng := 40.7128, -74.0060
+
+	// Initially balanced: 1.0x
+	if m := engine.GetMultiplier(lat, lng); m != 1.0 {
+		t.Errorf("expected initial 1.0x, got %f", m)
+	}
+
+	// Simulate high demand spike: 8 ride requests in the same cell with 1 driver
+	for i := 0; i < 8; i++ {
+		engine.RecordDemand(lat, lng)
+	}
+	engine.UpdateSupply(geo.CellID(lat, lng), 1)
+
+	surge := engine.GetMultiplier(lat, lng)
+	if surge <= 1.0 {
+		t.Errorf("expected surge > 1.0, got %f", surge)
+	}
+	if surge > 2.5 {
+		t.Errorf("expected surge capped at 2.5, got %f", surge)
+	}
+
+	zones := engine.GetActiveZones()
+	if len(zones) == 0 {
+		t.Errorf("expected at least 1 active surge zone")
+	}
+	if zones[0].Multiplier != surge {
+		t.Errorf("zone multiplier mismatch: %f vs %f", zones[0].Multiplier, surge)
+	}
+}

@@ -280,3 +280,30 @@ When a ride is cancelled (`POST /api/rides/{id}/cancel`):
 
 This is the [Saga pattern](https://microservices.io/patterns/data/saga.html) — a chain
 of local transactions coordinated through events, with no distributed locking required.
+
+---
+
+## Advanced Distributed Systems Features
+
+### 1. Spatial Hexagonal Indexing & Dynamic Surge Pricing
+- Maps continuous city coordinates into discrete hexagonal spatial cells (`hex_<row>_<col>`) with ~1 km resolution.
+- **Dynamic Surge Pricing Engine (`shared/geo.SurgeEngine`)**: Tracks ride request demand against available driver supply per cell in rolling 90-second windows.
+- Automatically computes surge multipliers ($1.0\times$ up to $2.5\times$) with visual heatmap rendering in Leaflet.
+
+### 2. Concurrency Resilience & Distributed Driver Locking
+- **Atomic Driver Claim Lock (`shared/resilience.Locker`)**: Prevents race conditions during matching so two concurrent passengers never claim the same driver.
+- **Circuit Breaker (`shared/resilience.CircuitBreaker`)**: Protects services from cascading failures with closed/open/half-open state machines.
+- **Token Bucket Rate Limiter (`shared/resilience.RateLimiter`)**: Rejects abusive traffic with `429 Too Many Requests`.
+
+### 3. Real-Time Operations Control Center (`/ops`)
+- Access **http://localhost:8080/ops** to view the live dark-mode command center.
+- Displays all online fleet positions updating live via Server-Sent Events (SSE).
+- Visualizes real-time surge pricing heat zones and streaming NATS dispatch event ticker.
+
+### 4. Autonomous Fleet Traffic Simulator
+Run a full concurrent city simulation to generate live traffic for testing, metrics, and video demos:
+
+```bash
+task simulate     # Spawns 20 autonomous drivers + automated riders
+```
+Outputs live throughput, completed trips, active surge, and Saga cancellation refunds in your terminal.

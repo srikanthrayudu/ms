@@ -388,23 +388,24 @@ func (x *RequestRideRequest) GetType() RideType {
 }
 
 type Ride struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	PassengerId    string                 `protobuf:"bytes,2,opt,name=passenger_id,json=passengerId,proto3" json:"passenger_id,omitempty"` // primary passenger (or first to join pool)
-	DriverId       string                 `protobuf:"bytes,3,opt,name=driver_id,json=driverId,proto3" json:"driver_id,omitempty"`
-	Pickup         *GeoPoint              `protobuf:"bytes,4,opt,name=pickup,proto3" json:"pickup,omitempty"`
-	Dropoff        *GeoPoint              `protobuf:"bytes,5,opt,name=dropoff,proto3" json:"dropoff,omitempty"`
-	Status         RideStatus             `protobuf:"varint,6,opt,name=status,proto3,enum=ride.v1.RideStatus" json:"status,omitempty"`
-	Fare           float64                `protobuf:"fixed64,7,opt,name=fare,proto3" json:"fare,omitempty"` // total fare for SOLO; per-rider breakdown in riders for POOL
-	DistanceMeters float64                `protobuf:"fixed64,8,opt,name=distance_meters,json=distanceMeters,proto3" json:"distance_meters,omitempty"`
-	RequestedAt    int64                  `protobuf:"varint,9,opt,name=requested_at,json=requestedAt,proto3" json:"requested_at,omitempty"`
-	CompletedAt    int64                  `protobuf:"varint,10,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
-	Type           RideType               `protobuf:"varint,11,opt,name=type,proto3,enum=ride.v1.RideType" json:"type,omitempty"`
-	Riders         []*Rider               `protobuf:"bytes,12,rep,name=riders,proto3" json:"riders,omitempty"`                            // populated for POOL rides
-	MaxRiders      int32                  `protobuf:"varint,13,opt,name=max_riders,json=maxRiders,proto3" json:"max_riders,omitempty"`    // max pool capacity (default 3)
-	RiderCount     int32                  `protobuf:"varint,14,opt,name=rider_count,json=riderCount,proto3" json:"rider_count,omitempty"` // current number of riders
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	PassengerId     string                 `protobuf:"bytes,2,opt,name=passenger_id,json=passengerId,proto3" json:"passenger_id,omitempty"` // primary passenger (or first to join pool)
+	DriverId        string                 `protobuf:"bytes,3,opt,name=driver_id,json=driverId,proto3" json:"driver_id,omitempty"`
+	Pickup          *GeoPoint              `protobuf:"bytes,4,opt,name=pickup,proto3" json:"pickup,omitempty"`
+	Dropoff         *GeoPoint              `protobuf:"bytes,5,opt,name=dropoff,proto3" json:"dropoff,omitempty"`
+	Status          RideStatus             `protobuf:"varint,6,opt,name=status,proto3,enum=ride.v1.RideStatus" json:"status,omitempty"`
+	Fare            float64                `protobuf:"fixed64,7,opt,name=fare,proto3" json:"fare,omitempty"` // total fare for SOLO; per-rider breakdown in riders for POOL
+	DistanceMeters  float64                `protobuf:"fixed64,8,opt,name=distance_meters,json=distanceMeters,proto3" json:"distance_meters,omitempty"`
+	RequestedAt     int64                  `protobuf:"varint,9,opt,name=requested_at,json=requestedAt,proto3" json:"requested_at,omitempty"`
+	CompletedAt     int64                  `protobuf:"varint,10,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
+	Type            RideType               `protobuf:"varint,11,opt,name=type,proto3,enum=ride.v1.RideType" json:"type,omitempty"`
+	Riders          []*Rider               `protobuf:"bytes,12,rep,name=riders,proto3" json:"riders,omitempty"`                                            // populated for POOL rides
+	MaxRiders       int32                  `protobuf:"varint,13,opt,name=max_riders,json=maxRiders,proto3" json:"max_riders,omitempty"`                    // max pool capacity (default 3)
+	RiderCount      int32                  `protobuf:"varint,14,opt,name=rider_count,json=riderCount,proto3" json:"rider_count,omitempty"`                 // current number of riders
+	SurgeMultiplier float64                `protobuf:"fixed64,15,opt,name=surge_multiplier,json=surgeMultiplier,proto3" json:"surge_multiplier,omitempty"` // dynamic surge pricing multiplier (e.g. 1.0 - 2.5)
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Ride) Reset() {
@@ -531,6 +532,13 @@ func (x *Ride) GetMaxRiders() int32 {
 func (x *Ride) GetRiderCount() int32 {
 	if x != nil {
 		return x.RiderCount
+	}
+	return 0
+}
+
+func (x *Ride) GetSurgeMultiplier() float64 {
+	if x != nil {
+		return x.SurgeMultiplier
 	}
 	return 0
 }
@@ -760,6 +768,170 @@ func (x *ListMyRidesResponse) GetRides() []*Ride {
 	return nil
 }
 
+type SurgeZone struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CellId        string                 `protobuf:"bytes,1,opt,name=cell_id,json=cellId,proto3" json:"cell_id,omitempty"`
+	CenterLat     float64                `protobuf:"fixed64,2,opt,name=center_lat,json=centerLat,proto3" json:"center_lat,omitempty"`
+	CenterLng     float64                `protobuf:"fixed64,3,opt,name=center_lng,json=centerLng,proto3" json:"center_lng,omitempty"`
+	Multiplier    float64                `protobuf:"fixed64,4,opt,name=multiplier,proto3" json:"multiplier,omitempty"`
+	DemandCount   int32                  `protobuf:"varint,5,opt,name=demand_count,json=demandCount,proto3" json:"demand_count,omitempty"`
+	SupplyCount   int32                  `protobuf:"varint,6,opt,name=supply_count,json=supplyCount,proto3" json:"supply_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SurgeZone) Reset() {
+	*x = SurgeZone{}
+	mi := &file_ride_v1_ride_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SurgeZone) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SurgeZone) ProtoMessage() {}
+
+func (x *SurgeZone) ProtoReflect() protoreflect.Message {
+	mi := &file_ride_v1_ride_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SurgeZone.ProtoReflect.Descriptor instead.
+func (*SurgeZone) Descriptor() ([]byte, []int) {
+	return file_ride_v1_ride_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *SurgeZone) GetCellId() string {
+	if x != nil {
+		return x.CellId
+	}
+	return ""
+}
+
+func (x *SurgeZone) GetCenterLat() float64 {
+	if x != nil {
+		return x.CenterLat
+	}
+	return 0
+}
+
+func (x *SurgeZone) GetCenterLng() float64 {
+	if x != nil {
+		return x.CenterLng
+	}
+	return 0
+}
+
+func (x *SurgeZone) GetMultiplier() float64 {
+	if x != nil {
+		return x.Multiplier
+	}
+	return 0
+}
+
+func (x *SurgeZone) GetDemandCount() int32 {
+	if x != nil {
+		return x.DemandCount
+	}
+	return 0
+}
+
+func (x *SurgeZone) GetSupplyCount() int32 {
+	if x != nil {
+		return x.SupplyCount
+	}
+	return 0
+}
+
+type GetSurgeZonesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSurgeZonesRequest) Reset() {
+	*x = GetSurgeZonesRequest{}
+	mi := &file_ride_v1_ride_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSurgeZonesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSurgeZonesRequest) ProtoMessage() {}
+
+func (x *GetSurgeZonesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_ride_v1_ride_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSurgeZonesRequest.ProtoReflect.Descriptor instead.
+func (*GetSurgeZonesRequest) Descriptor() ([]byte, []int) {
+	return file_ride_v1_ride_proto_rawDescGZIP(), []int{9}
+}
+
+type GetSurgeZonesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Zones         []*SurgeZone           `protobuf:"bytes,1,rep,name=zones,proto3" json:"zones,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSurgeZonesResponse) Reset() {
+	*x = GetSurgeZonesResponse{}
+	mi := &file_ride_v1_ride_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSurgeZonesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSurgeZonesResponse) ProtoMessage() {}
+
+func (x *GetSurgeZonesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_ride_v1_ride_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSurgeZonesResponse.ProtoReflect.Descriptor instead.
+func (*GetSurgeZonesResponse) Descriptor() ([]byte, []int) {
+	return file_ride_v1_ride_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GetSurgeZonesResponse) GetZones() []*SurgeZone {
+	if x != nil {
+		return x.Zones
+	}
+	return nil
+}
+
 var File_ride_v1_ride_proto protoreflect.FileDescriptor
 
 const file_ride_v1_ride_proto_rawDesc = "" +
@@ -780,7 +952,7 @@ const file_ride_v1_ride_proto_rawDesc = "" +
 	"\fpassenger_id\x18\x01 \x01(\tR\vpassengerId\x12)\n" +
 	"\x06pickup\x18\x02 \x01(\v2\x11.ride.v1.GeoPointR\x06pickup\x12+\n" +
 	"\adropoff\x18\x03 \x01(\v2\x11.ride.v1.GeoPointR\adropoff\x12%\n" +
-	"\x04type\x18\x04 \x01(\x0e2\x11.ride.v1.RideTypeR\x04type\"\xed\x03\n" +
+	"\x04type\x18\x04 \x01(\x0e2\x11.ride.v1.RideTypeR\x04type\"\x98\x04\n" +
 	"\x04Ride\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\fpassenger_id\x18\x02 \x01(\tR\vpassengerId\x12\x1b\n" +
@@ -798,7 +970,8 @@ const file_ride_v1_ride_proto_rawDesc = "" +
 	"\n" +
 	"max_riders\x18\r \x01(\x05R\tmaxRiders\x12\x1f\n" +
 	"\vrider_count\x18\x0e \x01(\x05R\n" +
-	"riderCount\" \n" +
+	"riderCount\x12)\n" +
+	"\x10surge_multiplier\x18\x0f \x01(\x01R\x0fsurgeMultiplier\" \n" +
 	"\x0eGetRideRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\xd8\x01\n" +
 	"\x17UpdateRideStatusRequest\x12\x0e\n" +
@@ -812,7 +985,21 @@ const file_ride_v1_ride_proto_rawDesc = "" +
 	"\x04role\x18\x02 \x01(\tR\x04role\x12\x14\n" +
 	"\x05limit\x18\x03 \x01(\x05R\x05limit\":\n" +
 	"\x13ListMyRidesResponse\x12#\n" +
-	"\x05rides\x18\x01 \x03(\v2\r.ride.v1.RideR\x05rides*\x80\x01\n" +
+	"\x05rides\x18\x01 \x03(\v2\r.ride.v1.RideR\x05rides\"\xc8\x01\n" +
+	"\tSurgeZone\x12\x17\n" +
+	"\acell_id\x18\x01 \x01(\tR\x06cellId\x12\x1d\n" +
+	"\n" +
+	"center_lat\x18\x02 \x01(\x01R\tcenterLat\x12\x1d\n" +
+	"\n" +
+	"center_lng\x18\x03 \x01(\x01R\tcenterLng\x12\x1e\n" +
+	"\n" +
+	"multiplier\x18\x04 \x01(\x01R\n" +
+	"multiplier\x12!\n" +
+	"\fdemand_count\x18\x05 \x01(\x05R\vdemandCount\x12!\n" +
+	"\fsupply_count\x18\x06 \x01(\x05R\vsupplyCount\"\x16\n" +
+	"\x14GetSurgeZonesRequest\"A\n" +
+	"\x15GetSurgeZonesResponse\x12(\n" +
+	"\x05zones\x18\x01 \x03(\v2\x12.ride.v1.SurgeZoneR\x05zones*\x80\x01\n" +
 	"\n" +
 	"RideStatus\x12\x1b\n" +
 	"\x17RIDE_STATUS_UNSPECIFIED\x10\x00\x12\r\n" +
@@ -830,12 +1017,13 @@ const file_ride_v1_ride_proto_rawDesc = "" +
 	"\rRIDER_PENDING\x10\x00\x12\x12\n" +
 	"\x0eRIDER_ON_BOARD\x10\x01\x12\x11\n" +
 	"\rRIDER_DROPPED\x10\x02\x12\x13\n" +
-	"\x0fRIDER_CANCELLED\x10\x032\x8a\x02\n" +
+	"\x0fRIDER_CANCELLED\x10\x032\xda\x02\n" +
 	"\vRideService\x129\n" +
 	"\vRequestRide\x12\x1b.ride.v1.RequestRideRequest\x1a\r.ride.v1.Ride\x121\n" +
 	"\aGetRide\x12\x17.ride.v1.GetRideRequest\x1a\r.ride.v1.Ride\x12C\n" +
 	"\x10UpdateRideStatus\x12 .ride.v1.UpdateRideStatusRequest\x1a\r.ride.v1.Ride\x12H\n" +
-	"\vListMyRides\x12\x1b.ride.v1.ListMyRidesRequest\x1a\x1c.ride.v1.ListMyRidesResponseB\x1dZ\x1bms/proto/gen/ride/v1;ridev1b\x06proto3"
+	"\vListMyRides\x12\x1b.ride.v1.ListMyRidesRequest\x1a\x1c.ride.v1.ListMyRidesResponse\x12N\n" +
+	"\rGetSurgeZones\x12\x1d.ride.v1.GetSurgeZonesRequest\x1a\x1e.ride.v1.GetSurgeZonesResponseB\x1dZ\x1bms/proto/gen/ride/v1;ridev1b\x06proto3"
 
 var (
 	file_ride_v1_ride_proto_rawDescOnce sync.Once
@@ -850,7 +1038,7 @@ func file_ride_v1_ride_proto_rawDescGZIP() []byte {
 }
 
 var file_ride_v1_ride_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_ride_v1_ride_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_ride_v1_ride_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_ride_v1_ride_proto_goTypes = []any{
 	(RideStatus)(0),                 // 0: ride.v1.RideStatus
 	(RideType)(0),                   // 1: ride.v1.RideType
@@ -863,6 +1051,9 @@ var file_ride_v1_ride_proto_goTypes = []any{
 	(*UpdateRideStatusRequest)(nil), // 8: ride.v1.UpdateRideStatusRequest
 	(*ListMyRidesRequest)(nil),      // 9: ride.v1.ListMyRidesRequest
 	(*ListMyRidesResponse)(nil),     // 10: ride.v1.ListMyRidesResponse
+	(*SurgeZone)(nil),               // 11: ride.v1.SurgeZone
+	(*GetSurgeZonesRequest)(nil),    // 12: ride.v1.GetSurgeZonesRequest
+	(*GetSurgeZonesResponse)(nil),   // 13: ride.v1.GetSurgeZonesResponse
 }
 var file_ride_v1_ride_proto_depIdxs = []int32{
 	3,  // 0: ride.v1.Rider.pickup:type_name -> ride.v1.GeoPoint
@@ -879,19 +1070,22 @@ var file_ride_v1_ride_proto_depIdxs = []int32{
 	0,  // 11: ride.v1.UpdateRideStatusRequest.status:type_name -> ride.v1.RideStatus
 	2,  // 12: ride.v1.UpdateRideStatusRequest.rider_status:type_name -> ride.v1.RiderStatus
 	6,  // 13: ride.v1.ListMyRidesResponse.rides:type_name -> ride.v1.Ride
-	5,  // 14: ride.v1.RideService.RequestRide:input_type -> ride.v1.RequestRideRequest
-	7,  // 15: ride.v1.RideService.GetRide:input_type -> ride.v1.GetRideRequest
-	8,  // 16: ride.v1.RideService.UpdateRideStatus:input_type -> ride.v1.UpdateRideStatusRequest
-	9,  // 17: ride.v1.RideService.ListMyRides:input_type -> ride.v1.ListMyRidesRequest
-	6,  // 18: ride.v1.RideService.RequestRide:output_type -> ride.v1.Ride
-	6,  // 19: ride.v1.RideService.GetRide:output_type -> ride.v1.Ride
-	6,  // 20: ride.v1.RideService.UpdateRideStatus:output_type -> ride.v1.Ride
-	10, // 21: ride.v1.RideService.ListMyRides:output_type -> ride.v1.ListMyRidesResponse
-	18, // [18:22] is the sub-list for method output_type
-	14, // [14:18] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	11, // 14: ride.v1.GetSurgeZonesResponse.zones:type_name -> ride.v1.SurgeZone
+	5,  // 15: ride.v1.RideService.RequestRide:input_type -> ride.v1.RequestRideRequest
+	7,  // 16: ride.v1.RideService.GetRide:input_type -> ride.v1.GetRideRequest
+	8,  // 17: ride.v1.RideService.UpdateRideStatus:input_type -> ride.v1.UpdateRideStatusRequest
+	9,  // 18: ride.v1.RideService.ListMyRides:input_type -> ride.v1.ListMyRidesRequest
+	12, // 19: ride.v1.RideService.GetSurgeZones:input_type -> ride.v1.GetSurgeZonesRequest
+	6,  // 20: ride.v1.RideService.RequestRide:output_type -> ride.v1.Ride
+	6,  // 21: ride.v1.RideService.GetRide:output_type -> ride.v1.Ride
+	6,  // 22: ride.v1.RideService.UpdateRideStatus:output_type -> ride.v1.Ride
+	10, // 23: ride.v1.RideService.ListMyRides:output_type -> ride.v1.ListMyRidesResponse
+	13, // 24: ride.v1.RideService.GetSurgeZones:output_type -> ride.v1.GetSurgeZonesResponse
+	20, // [20:25] is the sub-list for method output_type
+	15, // [15:20] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_ride_v1_ride_proto_init() }
@@ -905,7 +1099,7 @@ func file_ride_v1_ride_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_ride_v1_ride_proto_rawDesc), len(file_ride_v1_ride_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   8,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -23,6 +23,7 @@ const (
 	RideService_GetRide_FullMethodName          = "/ride.v1.RideService/GetRide"
 	RideService_UpdateRideStatus_FullMethodName = "/ride.v1.RideService/UpdateRideStatus"
 	RideService_ListMyRides_FullMethodName      = "/ride.v1.RideService/ListMyRides"
+	RideService_GetSurgeZones_FullMethodName    = "/ride.v1.RideService/GetSurgeZones"
 )
 
 // RideServiceClient is the client API for RideService service.
@@ -35,6 +36,7 @@ type RideServiceClient interface {
 	GetRide(ctx context.Context, in *GetRideRequest, opts ...grpc.CallOption) (*Ride, error)
 	UpdateRideStatus(ctx context.Context, in *UpdateRideStatusRequest, opts ...grpc.CallOption) (*Ride, error)
 	ListMyRides(ctx context.Context, in *ListMyRidesRequest, opts ...grpc.CallOption) (*ListMyRidesResponse, error)
+	GetSurgeZones(ctx context.Context, in *GetSurgeZonesRequest, opts ...grpc.CallOption) (*GetSurgeZonesResponse, error)
 }
 
 type rideServiceClient struct {
@@ -85,6 +87,16 @@ func (c *rideServiceClient) ListMyRides(ctx context.Context, in *ListMyRidesRequ
 	return out, nil
 }
 
+func (c *rideServiceClient) GetSurgeZones(ctx context.Context, in *GetSurgeZonesRequest, opts ...grpc.CallOption) (*GetSurgeZonesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSurgeZonesResponse)
+	err := c.cc.Invoke(ctx, RideService_GetSurgeZones_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RideServiceServer is the server API for RideService service.
 // All implementations must embed UnimplementedRideServiceServer
 // for forward compatibility.
@@ -95,6 +107,7 @@ type RideServiceServer interface {
 	GetRide(context.Context, *GetRideRequest) (*Ride, error)
 	UpdateRideStatus(context.Context, *UpdateRideStatusRequest) (*Ride, error)
 	ListMyRides(context.Context, *ListMyRidesRequest) (*ListMyRidesResponse, error)
+	GetSurgeZones(context.Context, *GetSurgeZonesRequest) (*GetSurgeZonesResponse, error)
 	mustEmbedUnimplementedRideServiceServer()
 }
 
@@ -116,6 +129,9 @@ func (UnimplementedRideServiceServer) UpdateRideStatus(context.Context, *UpdateR
 }
 func (UnimplementedRideServiceServer) ListMyRides(context.Context, *ListMyRidesRequest) (*ListMyRidesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListMyRides not implemented")
+}
+func (UnimplementedRideServiceServer) GetSurgeZones(context.Context, *GetSurgeZonesRequest) (*GetSurgeZonesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSurgeZones not implemented")
 }
 func (UnimplementedRideServiceServer) mustEmbedUnimplementedRideServiceServer() {}
 func (UnimplementedRideServiceServer) testEmbeddedByValue()                     {}
@@ -210,6 +226,24 @@ func _RideService_ListMyRides_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RideService_GetSurgeZones_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSurgeZonesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RideServiceServer).GetSurgeZones(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RideService_GetSurgeZones_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RideServiceServer).GetSurgeZones(ctx, req.(*GetSurgeZonesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RideService_ServiceDesc is the grpc.ServiceDesc for RideService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -232,6 +266,10 @@ var RideService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListMyRides",
 			Handler:    _RideService_ListMyRides_Handler,
+		},
+		{
+			MethodName: "GetSurgeZones",
+			Handler:    _RideService_GetSurgeZones_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

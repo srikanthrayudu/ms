@@ -20,6 +20,7 @@ import (
 	ridev1     "ms/proto/gen/ride/v1"
 	"ms/shared/events"
 	"ms/shared/geo"
+	"ms/shared/resilience"
 	"ms/ride-service/internal/store"
 )
 
@@ -38,10 +39,20 @@ type Server struct {
 	driverClient   driverv1.DriverServiceClient
 	nc             *nats.Conn
 	log            *slog.Logger
+	surge          *geo.SurgeEngine
+	locker         resilience.Locker
 }
 
 func New(repo *store.Store, loc locationv1.LocationServiceClient, drv driverv1.DriverServiceClient, nc *nats.Conn, log *slog.Logger) *Server {
-	return &Server{repo: repo, locationClient: loc, driverClient: drv, nc: nc, log: log}
+	return &Server{
+		repo:           repo,
+		locationClient: loc,
+		driverClient:   drv,
+		nc:             nc,
+		log:            log,
+		surge:          geo.NewSurgeEngine(90 * time.Second),
+		locker:         resilience.NewMemoryLocker(),
+	}
 }
 
 func newID() string {
@@ -65,6 +76,10 @@ func (s *Server) RequestRide(ctx context.Context, req *ridev1.RequestRideRequest
 		rideType = store.RideTypePool
 	}
 
+	// Record spatial demand and calculate dynamic surge pricing multiplier
+	s.surge.RecordDemand(pickup.GetLatitude(), pickup.GetLongitude())
+	surgeMult := s.surge.GetMultiplier(pickup.GetLatitude(), pickup.GetLongitude())
+
 	// ── POOL: try to join an existing open pool trip ───────────────────────
 	if rideType == store.RideTypePool {
 		joined, ride, err := s.tryJoinPool(ctx, req, distance)
@@ -78,20 +93,21 @@ func (s *Server) RequestRide(ctx context.Context, req *ridev1.RequestRideRequest
 
 	// ── Create a new ride (SOLO or new POOL trip) ──────────────────────────
 	r := &store.Ride{
-		ID:             newID(),
-		PassengerID:    req.GetPassengerId(),
-		PickupLat:      pickup.GetLatitude(),
-		PickupLng:      pickup.GetLongitude(),
-		PickupAddr:     pickup.GetAddress(),
-		DropoffLat:     dropoff.GetLatitude(),
-		DropoffLng:     dropoff.GetLongitude(),
-		DropoffAddr:    dropoff.GetAddress(),
-		Status:         int(ridev1.RideStatus_REQUESTED),
-		DistanceMeters: distance,
-		RequestedAt:    time.Now().Unix(),
-		RideType:       rideType,
-		MaxRiders:      poolMaxRiders,
-		RiderCount:     1,
+		ID:              newID(),
+		PassengerID:     req.GetPassengerId(),
+		PickupLat:       pickup.GetLatitude(),
+		PickupLng:       pickup.GetLongitude(),
+		PickupAddr:      pickup.GetAddress(),
+		DropoffLat:      dropoff.GetLatitude(),
+		DropoffLng:      dropoff.GetLongitude(),
+		DropoffAddr:     dropoff.GetAddress(),
+		Status:          int(ridev1.RideStatus_REQUESTED),
+		DistanceMeters:  distance,
+		RequestedAt:     time.Now().Unix(),
+		RideType:        rideType,
+		MaxRiders:       poolMaxRiders,
+		RiderCount:      1,
+		SurgeMultiplier: surgeMult,
 	}
 	if err := s.repo.Create(ctx, r); err != nil {
 		s.log.Error("create ride", "err", err)
@@ -221,8 +237,8 @@ func (s *Server) UpdateRideStatus(ctx context.Context, req *ridev1.UpdateRideSta
 	r.Status = int(st)
 	if st == ridev1.RideStatus_COMPLETED {
 		if r.RideType == store.RideTypePool {
-			// Pool fare: total = per-rider fare × rider count.
-			perRider := geo.PoolFare(r.DistanceMeters, r.RiderCount)
+			// Pool fare: total = per-rider fare × rider count (factoring surge multiplier).
+			perRider := geo.PoolFareWithSurge(r.DistanceMeters, r.RiderCount, r.SurgeMultiplier)
 			r.Fare = perRider * float64(r.RiderCount)
 			_ = s.repo.UpdateRiderFares(ctx, r.ID, perRider)
 			// Mark all pending/on-board riders as dropped.
@@ -234,7 +250,7 @@ func (s *Server) UpdateRideStatus(ctx context.Context, req *ridev1.UpdateRideSta
 				}
 			}
 		} else {
-			r.Fare = geo.SoloFare(r.DistanceMeters)
+			r.Fare = geo.SoloFareWithSurge(r.DistanceMeters, r.SurgeMultiplier)
 		}
 		r.CompletedAt = time.Now().Unix()
 	}
@@ -295,18 +311,26 @@ func (s *Server) tryMatchDriver(ctx context.Context, r *store.Ride) bool {
 		return false
 	}
 	for _, d := range nearby.GetDrivers() {
-		avail, err := s.driverClient.GetAvailability(ctx, &driverv1.GetAvailabilityRequest{Id: d.GetDriverId()})
-		if err != nil || !avail.GetIsAvailable() {
+		driverID := d.GetDriverId()
+		// Atomic driver lock prevents race conditions during concurrent matching
+		unlock, err := s.locker.TryLock(ctx, "driver:"+driverID, 10*time.Second)
+		if err != nil {
 			continue
 		}
-		r.DriverID = d.GetDriverId()
+		avail, err := s.driverClient.GetAvailability(ctx, &driverv1.GetAvailabilityRequest{Id: driverID})
+		if err != nil || !avail.GetIsAvailable() {
+			unlock()
+			continue
+		}
+		r.DriverID = driverID
 		r.Status = int(ridev1.RideStatus_MATCHED)
 		if err := s.repo.Update(ctx, r); err != nil {
 			r.DriverID = ""
 			r.Status = int(ridev1.RideStatus_REQUESTED)
+			unlock()
 			return false
 		}
-		s.log.Info("ride matched", "ride_id", r.ID, "driver", r.DriverID, "type", r.RideType)
+		s.log.Info("ride matched", "ride_id", r.ID, "driver", r.DriverID, "type", r.RideType, "surge", r.SurgeMultiplier)
 		return true
 	}
 	return false
@@ -349,10 +373,28 @@ func toProtoRide(r *store.Ride) *ridev1.Ride {
 		DistanceMeters: r.DistanceMeters,
 		RequestedAt:    r.RequestedAt,
 		CompletedAt:    r.CompletedAt,
-		Type:           rt,
-		MaxRiders:      int32(r.MaxRiders),
-		RiderCount:     int32(r.RiderCount),
+		Type:            rt,
+		MaxRiders:       int32(r.MaxRiders),
+		RiderCount:      int32(r.RiderCount),
+		SurgeMultiplier: r.SurgeMultiplier,
 	}
+}
+
+// GetSurgeZones returns active spatial cells currently experiencing surge pricing.
+func (s *Server) GetSurgeZones(ctx context.Context, _ *ridev1.GetSurgeZonesRequest) (*ridev1.GetSurgeZonesResponse, error) {
+	zones := s.surge.GetActiveZones()
+	out := make([]*ridev1.SurgeZone, 0, len(zones))
+	for _, z := range zones {
+		out = append(out, &ridev1.SurgeZone{
+			CellId:      z.CellID,
+			CenterLat:   z.CenterLat,
+			CenterLng:   z.CenterLng,
+			Multiplier:  z.Multiplier,
+			DemandCount: int32(z.DemandCount),
+			SupplyCount: int32(z.SupplyCount),
+		})
+	}
+	return &ridev1.GetSurgeZonesResponse{Zones: out}, nil
 }
 
 // ─── NATS events ──────────────────────────────────────────────────────────

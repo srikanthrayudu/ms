@@ -10,6 +10,7 @@ service RideService {
   rpc GetRide(GetRideRequest)                 returns (Ride);
   rpc UpdateRideStatus(UpdateRideStatusRequest) returns (Ride);
   rpc ListMyRides(ListMyRidesRequest)         returns (ListMyRidesResponse);
+  rpc GetSurgeZones(GetSurgeZonesRequest)     returns (GetSurgeZonesResponse);
 }
 
 // ─── Enums ────────────────────────────────────────────────────────────────
@@ -75,8 +76,9 @@ message Ride {
   int64             completed_at    = 10;
   RideType          type            = 11;
   repeated Rider    riders          = 12; // populated for POOL rides
-  int32             max_riders      = 13; // max pool capacity (default 3)
-  int32             rider_count     = 14; // current number of riders
+  int32             max_riders       = 13; // max pool capacity (default 3)
+  int32             rider_count      = 14; // current number of riders
+  double            surge_multiplier = 15; // dynamic surge pricing multiplier (e.g. 1.0 - 2.5)
 }
 
 message GetRideRequest {
@@ -100,4 +102,19 @@ message ListMyRidesRequest {
 
 message ListMyRidesResponse {
   repeated Ride rides = 1;
+}
+
+message SurgeZone {
+  string cell_id          = 1;
+  double center_lat       = 2;
+  double center_lng       = 3;
+  double multiplier       = 4;
+  int32  demand_count     = 5;
+  int32  supply_count     = 6;
+}
+
+message GetSurgeZonesRequest {}
+
+message GetSurgeZonesResponse {
+  repeated SurgeZone zones = 1;
 }

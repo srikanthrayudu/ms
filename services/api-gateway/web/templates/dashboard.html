@@ -51,6 +51,10 @@
     </label>
   </div>
 
+  <div id="surge-notice" style="display:none;margin-bottom:14px;padding:10px 14px;background:rgba(245,158,11,0.15);border:1px solid #f59e0b;border-radius:8px;font-size:13px;color:#fcd34d;">
+    🔥 <b>High Demand Surge Active:</b> Fares are dynamically adjusted based on real-time driver availability.
+  </div>
+
   <button class="btn primary lg w-full" data-on:click="@post('/api/rides')">Request ride →</button>
   <div id="form-error"></div>
 </div>
@@ -91,6 +95,11 @@
       setSig('pickupLat', lat.toFixed(6));
       setSig('pickupLng', lng.toFixed(6));
       setPlace('dropoff');
+      fetch('/api/surge').then(function(r){return r.json();}).then(function(d){
+        if (d.zones && d.zones.length > 0) {
+          document.getElementById('surge-notice').style.display = 'block';
+        }
+      }).catch(function(){});
     } else {
       if (mDrop) mDrop.setLatLng(e.latlng); else mDrop = L.marker(e.latlng, { icon: dropIcon }).addTo(map);
       setSig('dropoffLat', lat.toFixed(6));

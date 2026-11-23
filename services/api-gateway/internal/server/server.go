@@ -17,6 +17,7 @@ import (
 	"ms/api-gateway/web"
 	userv1 "ms/proto/gen/user/v1"
 	mslog "ms/shared/log"
+	"ms/shared/resilience"
 	"ms/shared/telemetry"
 )
 
@@ -45,6 +46,7 @@ type App struct {
 	nc      *nats.Conn
 	log     *slog.Logger
 	pages   map[string]*template.Template
+	limiter *resilience.RateLimiter
 }
 
 // New builds the App, parsing all templates.
@@ -54,6 +56,7 @@ func New(cfg config.Config, cl *clients.Clients, nc *nats.Conn) (*App, error) {
 		clients: cl,
 		nc:      nc,
 		log:     mslog.New("api-gateway", cfg.LogLevel),
+		limiter: resilience.NewRateLimiter(60.0, 30),
 	}
 	if err := a.loadTemplates(); err != nil {
 		return nil, err
@@ -73,7 +76,7 @@ func (a *App) loadTemplates() error {
 		"getSSE":  datastar.GetSSE,
 	}
 	base := template.Must(template.New("layout").Funcs(funcs).ParseFS(web.TemplatesFS, "templates/layout.html"))
-	names := []string{"index", "login", "register", "dashboard", "ride", "driver", "payments"}
+	names := []string{"index", "login", "register", "dashboard", "ride", "driver", "payments", "ops"}
 	a.pages = make(map[string]*template.Template, len(names))
 	for _, n := range names {
 		clone := template.Must(base.Clone())
@@ -126,6 +129,7 @@ func (a *App) Routes() http.Handler {
 	mux.HandleFunc("GET /rides/{id}", a.requireAuth(a.pageRide))
 	mux.HandleFunc("GET /driver", a.requireAuth(a.pageDriver))
 	mux.HandleFunc("GET /payments", a.requireAuth(a.pagePayments))
+	mux.HandleFunc("GET /ops", a.pageOps)
 
 	// Auth API
 	mux.HandleFunc("POST /api/login", a.apiLogin)
@@ -139,12 +143,16 @@ func (a *App) Routes() http.Handler {
 	mux.HandleFunc("POST /api/rides/{id}/pickup", a.requireAuthAPI(a.apiRidePickup))
 	mux.HandleFunc("POST /api/rides/{id}/complete", a.requireAuthAPI(a.apiRideComplete))
 	mux.HandleFunc("POST /api/rides/{id}/cancel", a.requireAuthAPI(a.apiRideCancel))
+	mux.HandleFunc("GET /api/surge", a.apiGetSurge)
 
 	// Driver API
 	mux.HandleFunc("POST /api/driver/onboard", a.requireAuthAPI(a.apiDriverOnboard))
 	mux.HandleFunc("POST /api/driver/availability", a.requireAuthAPI(a.apiDriverAvailability))
 	mux.HandleFunc("POST /api/driver/location", a.requireAuthAPI(a.apiDriverLocation))
 	mux.HandleFunc("GET /api/driver/stream", a.requireAuthAPI(a.apiDriverStream))
+
+	// Operations Center API
+	mux.HandleFunc("GET /api/ops/stream", a.apiOpsStream)
 
 	// Payment API
 	mux.HandleFunc("GET /api/payments", a.requireAuthAPI(a.apiListPayments))
@@ -154,7 +162,7 @@ func (a *App) Routes() http.Handler {
 	mux.HandleFunc("GET /api/notifications/stream", a.requireAuthAPI(a.apiNotificationStream))
 	mux.HandleFunc("POST /api/notifications/read", a.requireAuthAPI(a.apiMarkNotificationsRead))
 
-	return a.userMW(mux)
+	return a.limiter.Middleware(a.userMW(mux))
 }
 
 // userMW loads the user from the JWT cookie on every request.

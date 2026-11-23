@@ -57,6 +57,7 @@ tasks:
           - services/payment-service
           - services/notification-service
           - services/api-gateway
+          - services/simulator
         cmd: cd {{.ROOT_DIR}}/{{.ITEM}} && go mod tidy
 
   # ─────────────────────────────────────────────
@@ -173,6 +174,7 @@ tasks:
           - services/payment-service
           - services/notification-service
           - services/api-gateway
+          - services/simulator
         cmd: cd {{.ROOT_DIR}}/{{.ITEM}} && go vet ./... && echo "  ✅  {{.ITEM}}"
 
   # ─────────────────────────────────────────────
@@ -302,3 +304,11 @@ tasks:
           - api-gateway
         cmd: kind load docker-image rideshare/{{.ITEM}}:latest || podman image save rideshare/{{.ITEM}}:latest | kind load image-archive /dev/stdin
       - echo "  📦 All 7 microservices loaded into Kind cluster!"
+
+  # ─────────────────────────────────────────────
+  # Autonomous Traffic Simulator
+  # ─────────────────────────────────────────────
+  simulate:
+    desc: Run the autonomous fleet and rider traffic simulation generator
+    cmds:
+      - cd {{.ROOT_DIR}}/services/simulator && go run ./cmd/simulator -drivers 20 -interval 3

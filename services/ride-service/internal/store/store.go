@@ -42,9 +42,10 @@ type Ride struct {
 	DistanceMeters float64
 	RequestedAt    int64
 	CompletedAt    int64
-	RideType       int // RideTypeSolo | RideTypePool
-	MaxRiders      int // max pool capacity
-	RiderCount     int // current number of pool riders
+	RideType        int // RideTypeSolo | RideTypePool
+	MaxRiders       int // max pool capacity
+	RiderCount      int // current number of pool riders
+	SurgeMultiplier float64
 }
 
 // Rider is one passenger's slot in a pool ride.
@@ -90,7 +91,8 @@ func (s *Store) Migrate(ctx context.Context) error {
 			completed_at    INTEGER NOT NULL DEFAULT 0,
 			ride_type       INTEGER NOT NULL DEFAULT 0,
 			max_riders      INTEGER NOT NULL DEFAULT 3,
-			rider_count     INTEGER NOT NULL DEFAULT 0
+			rider_count     INTEGER NOT NULL DEFAULT 0,
+			surge_multiplier REAL NOT NULL DEFAULT 1.0
 		);
 		CREATE TABLE IF NOT EXISTS riders (
 			ride_id      TEXT NOT NULL REFERENCES rides(id),
@@ -114,7 +116,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 
 const rideColumns = `id,passenger_id,driver_id,pickup_lat,pickup_lng,pickup_addr,
 	dropoff_lat,dropoff_lng,dropoff_addr,status,fare,distance_meters,
-	requested_at,completed_at,ride_type,max_riders,rider_count`
+	requested_at,completed_at,ride_type,max_riders,rider_count,surge_multiplier`
 
 func scanRide(sc interface{ Scan(dest ...any) error }) (*Ride, error) {
 	var r Ride
@@ -125,23 +127,28 @@ func scanRide(sc interface{ Scan(dest ...any) error }) (*Ride, error) {
 		&r.Status, &r.Fare, &r.DistanceMeters,
 		&r.RequestedAt, &r.CompletedAt,
 		&r.RideType, &r.MaxRiders, &r.RiderCount,
+		&r.SurgeMultiplier,
 	)
 	return &r, err
 }
 
 // Create inserts a new ride row.
 func (s *Store) Create(ctx context.Context, r *Ride) error {
+	if r.SurgeMultiplier <= 0 {
+		r.SurgeMultiplier = 1.0
+	}
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO rides (id,passenger_id,driver_id,pickup_lat,pickup_lng,pickup_addr,
 			dropoff_lat,dropoff_lng,dropoff_addr,status,fare,distance_meters,
-			requested_at,completed_at,ride_type,max_riders,rider_count)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			requested_at,completed_at,ride_type,max_riders,rider_count,surge_multiplier)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		r.ID, r.PassengerID, r.DriverID,
 		r.PickupLat, r.PickupLng, r.PickupAddr,
 		r.DropoffLat, r.DropoffLng, r.DropoffAddr,
 		r.Status, r.Fare, r.DistanceMeters,
 		r.RequestedAt, r.CompletedAt,
 		r.RideType, r.MaxRiders, r.RiderCount,
+		r.SurgeMultiplier,
 	)
 	return err
 }

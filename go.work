@@ -8,6 +8,7 @@ use (
 	./services/notification-service
 	./services/payment-service
 	./services/ride-service
+	./services/simulator
 	./services/user-service
 	./shared
 )
