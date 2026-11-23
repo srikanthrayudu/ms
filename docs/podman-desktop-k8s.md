@@ -143,10 +143,18 @@ Here is a checklist of demonstrations you can present directly in Podman Desktop
 
 | Task | Command | Purpose |
 |------|---------|---------|
+| **One-Click Deploy** | `task k8s:deploy` | Complete automated flow: build images, load to Kind, apply manifests, and rollout restart |
 | Build images | `task podman:build` | Build all 7 microservice images with Podman |
 | Play Kube | `task podman:play` | Run the Kubernetes stack natively in Podman |
 | Stop Play Kube | `task podman:down` | Stop and clean up Podman pods |
 | Load to Kind | `task k8s:kind:load` | Pre-load local images into Podman Desktop's Kind cluster |
-| Deploy K8s | `task k8s:apply` | Deploy full stack to Kubernetes via Kustomize |
+| Deploy K8s | `task k8s:apply` | Deploy full stack to Kubernetes via Kustomize (Deployments, PVC, Jobs, CronJob) |
+| Cluster Status | `task k8s:status` | Show comprehensive status of Pods, Services, Ingress, PVC, Jobs, and CronJobs |
+| Post-Deploy Smoke Test | `task k8s:smoke-test` | Trigger the automated verification Job and stream health check results |
+| Trigger CronJob | `task k8s:cron:trigger` | Manually run the maintenance CronJob immediately |
+| Tail Service Logs | `task k8s:logs -- <svc>` | Stream live logs for a specific service (e.g. `task k8s:logs -- api-gateway`) |
+| Port-Forward Metrics & UI | `task k8s:forward:obs` | Port-forward Jaeger (:16686) and Prometheus (:9090) to localhost |
+| Chaos Self-Healing Test | `task k8s:chaos` | Terminate a random microservice pod to show Kubernetes instant self-healing |
+| Set Context Namespace | `task k8s:context` | Ensure kubectl and Podman Desktop active namespace is `rideshare` |
 | Delete K8s | `task k8s:delete` | Tear down Kubernetes deployment |
 | Check K8s | `task k8s:status` | Check pods, services, and ingress |
