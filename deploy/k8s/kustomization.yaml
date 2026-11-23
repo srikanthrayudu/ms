@@ -20,3 +20,6 @@ resources:
   - observability.yaml
   - job-smoke-test.yaml
   - cronjob-maintenance.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - networkpolicy.yaml

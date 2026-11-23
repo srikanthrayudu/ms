@@ -976,3 +976,171 @@ spec:
                   echo "• Querying dynamic surge heatmaps..."
                   wget -q -O - http://api-gateway:8080/api/surge > /dev/null && echo "  -> Surge engine sync completed"
                   echo "• Maintenance cycle completed successfully."
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-gateway-hpa
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/part-of: rideshare
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-gateway
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ride-service-hpa
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: ride-service
+    app.kubernetes.io/part-of: rideshare
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ride-service
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-gateway-pdb
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/part-of: rideshare
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api-gateway
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ride-service-pdb
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: ride-service
+    app.kubernetes.io/part-of: rideshare
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ride-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nats-pdb
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: nats
+    app.kubernetes.io/part-of: rideshare
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nats
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-gateway
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/part-of: rideshare
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: api-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-services-policy
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/part-of: rideshare
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - user-service
+          - driver-service
+          - location-service
+          - ride-service
+          - payment-service
+          - notification-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: api-gateway
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ride-service
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: smoke-test
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nats-message-broker-policy
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: nats
+    app.kubernetes.io/part-of: rideshare
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: nats
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 4222
+        - protocol: TCP
+          port: 8222

@@ -1,0 +1,41 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-gateway-pdb
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/part-of: rideshare
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api-gateway
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ride-service-pdb
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: ride-service
+    app.kubernetes.io/part-of: rideshare
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ride-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nats-pdb
+  namespace: rideshare
+  labels:
+    app.kubernetes.io/name: nats
+    app.kubernetes.io/part-of: rideshare
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nats
